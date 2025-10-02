@@ -2,7 +2,7 @@ import Nav from "./navbar/page";
 import Main from "./mainview/page";
 import "./globals.css";
 import { inter } from "./fonts/font";
-const res = await fetch("http://localhost:3000/api/games", {
+const res = await fetch("https://gameroll.vercel.app/api/games", {
   cache: "no-store",
 });
 const data = await res.json();

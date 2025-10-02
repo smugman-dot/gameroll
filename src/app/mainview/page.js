@@ -16,7 +16,7 @@ export default function Main({ data }) {
 
   async function FetchPageCached(page) {
     if (pagesCache.current.has(page)) return pagesCache.current.get(page);
-    const res = await fetch(`http://localhost:3000/api/games?page=${page}`, {
+    const res = await fetch(`https://gameroll.vercel.app/api/games?page=${page}`, {
       cache: "no-store",
     });
     const newData = await res.json();
