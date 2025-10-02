@@ -5,9 +5,10 @@ import StarRating from "./starRating";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
+import setPlatform from "./setPlatform";
 
 export default function Main() {
-  const [games, setGames] = useState([]); // start empty
+  const [games, setGames] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -33,8 +34,10 @@ export default function Main() {
         released: game.released,
         background_image: game.background_image,
         rating: game.rating,
+        stores: setPlatform(game.platforms),
       }));
       setGames(filteredData);
+      console.log(filteredData);
       setLoading(false);
     };
 
@@ -53,6 +56,7 @@ export default function Main() {
           released: game.released,
           background_image: game.background_image,
           rating: game.rating,
+          stores: setPlatform(game.platforms),
         }));
         setGames((prev) => [...prev, ...filteredData]);
         setCurrentPage(nextPage);
@@ -123,16 +127,29 @@ export default function Main() {
                   {game.released?.split("-")[0]}
                 </p>
                 <div
-                  className={`transition-all duration-700 delay-200 ${
+                  className={`transition-all flex flex-col gap-[25px] duration-700 delay-200 ${
                     activeIndex === index
                       ? "translate-y-0 opacity-100"
                       : "translate-y-5 opacity-0"
                   }`}
                 >
                   <StarRating rating={game.rating} />
-                  <button className="fancy-button mt-4">
-                    <span>Purchase Game</span>
-                  </button>
+                  <div className="flex gap-[10px] justify-center items-center bg-[#21212160] rounded-[50px]">
+                    <button className="fancy-button mt-4">
+                      <span>Purchase Game</span>
+                    </button>
+                    <div className="flex gap-[10px] p-[7px]">
+                      {game.stores.map((store) => (
+                        <Image
+                          key={store.id}
+                          alt="platform"
+                          width={34}
+                          height={34}
+                          src={"/" + store.name + ".svg"}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
