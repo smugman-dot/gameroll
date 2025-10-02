@@ -35,6 +35,7 @@ export default function Main() {
         background_image: game.background_image,
         rating: game.rating,
         stores: setPlatform(game.platforms),
+        genres: game.genres,
       }));
       setGames(filteredData);
       console.log(filteredData);
@@ -57,6 +58,7 @@ export default function Main() {
           background_image: game.background_image,
           rating: game.rating,
           stores: setPlatform(game.platforms),
+          genres: game.genres,
         }));
         setGames((prev) => [...prev, ...filteredData]);
         setCurrentPage(nextPage);
@@ -108,6 +110,20 @@ export default function Main() {
               <div className="absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
 
               <div className="absolute inset-y-[35%] inset-x-[3%] flex flex-col gap-[10px] items-start h-full w-full justify-start">
+                <div className="flex items-center gap-[5px] text-[white]">
+                  {game.genres.map((genre, index) => (
+                    <span
+                      key={genre.id}
+                      className="flex items-center gap-[5px]"
+                    >
+                      <span>{genre.name}</span>
+                      {index < game.genres.length - 1 && (
+                        <span className="w-[4px] h-[4px] bg-[white] rounded-full inline-block"></span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+
                 <h1
                   className={`text-[46px] text-[white] font-bold drop-shadow-lg transition-all duration-700 ${
                     activeIndex === index
