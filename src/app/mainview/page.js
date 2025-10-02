@@ -6,31 +6,47 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 
-export default function Main({ data }) {
-  const [games, setGames] = useState(data.results);
+export default function Main() {
+  const [games, setGames] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const pagesCache = useRef(new Map());
 
   async function FetchPageCached(page) {
     if (pagesCache.current.has(page)) return pagesCache.current.get(page);
-    const res = await fetch(`https://gameroll.vercel.app/api/games?page=${page}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(`/api/games?page=${page}`, { cache: "no-store" });
     const newData = await res.json();
     pagesCache.current.set(page, newData);
     return newData;
   }
 
+  // Fetch initial page on client
+  useEffect(() => {
+    const fetchInitial = async () => {
+      setLoading(true);
+      const initialData = await FetchPageCached(1);
+      const filteredData = initialData.results.map((game) => ({
+        id: game.id,
+        name: game.name,
+        released: game.released,
+        background_image: game.background_image,
+        rating: game.rating,
+      }));
+      setGames(filteredData);
+      setLoading(false);
+    };
+
+    fetchInitial();
+  }, []);
+
   // Preload next page a few slides before the end
   useEffect(() => {
-    if (activeIndex >= games.length - 3 && !loading) {
+    if (activeIndex >= games.length - 3 && !loading && games.length > 0) {
       setLoading(true);
       const nextPage = currentPage + 1;
       FetchPageCached(nextPage).then((newData) => {
-        // Only take necessary fields
         const filteredData = newData.results.map((game) => ({
           id: game.id,
           name: game.name,
@@ -43,7 +59,14 @@ export default function Main({ data }) {
         setLoading(false);
       });
     }
-  }, [activeIndex]);
+  }, [activeIndex, games, loading]);
+
+  if (loading && games.length === 0)
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
 
   return (
     <Swiper
@@ -73,7 +96,7 @@ export default function Main({ data }) {
                 fill
                 sizes="(max-width: 768px) 100vw, 94vw"
                 style={{ objectFit: "cover" }}
-                className={`swiper-lazy transition-transform duration-700 ${
+                className={`transition-transform duration-700 ${
                   activeIndex === index ? "scale-105" : "scale-100"
                 }`}
                 priority={activeIndex === index} // preload only active slide

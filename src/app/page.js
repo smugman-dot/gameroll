@@ -1,15 +1,40 @@
+"use client";
+import { useState, useEffect } from "react";
 import Nav from "./navbar/page";
 import Main from "./mainview/page";
 import "./globals.css";
 import { inter } from "./fonts/font";
-const res = await fetch("https://gameroll.vercel.app/api/games", {
-  cache: "no-store",
-});
-const data = await res.json();
+
 export default function Home() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/games", { cache: "no-store" });
+        const json = await res.json();
+        setData(json);
+      } catch (err) {
+        console.error("Failed to fetch games:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
+
   return (
     <div className="flex flex-col w-screen h-screen max-h-screen">
-      <Main data={data} />
+      {data && <Main data={data} />}
     </div>
   );
 }
