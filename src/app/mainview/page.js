@@ -7,7 +7,7 @@ import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 
 export default function Main() {
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState([]); // start empty
   const [activeIndex, setActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -22,7 +22,7 @@ export default function Main() {
     return newData;
   }
 
-  // Fetch initial page on client
+  // Fetch first page on client
   useEffect(() => {
     const fetchInitial = async () => {
       setLoading(true);
@@ -41,7 +41,7 @@ export default function Main() {
     fetchInitial();
   }, []);
 
-  // Preload next page a few slides before the end
+  // Preload next page before reaching end
   useEffect(() => {
     if (activeIndex >= games.length - 3 && !loading && games.length > 0) {
       setLoading(true);
@@ -99,7 +99,7 @@ export default function Main() {
                 className={`transition-transform duration-700 ${
                   activeIndex === index ? "scale-105" : "scale-100"
                 }`}
-                priority={activeIndex === index} // preload only active slide
+                priority={activeIndex === index}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
 
