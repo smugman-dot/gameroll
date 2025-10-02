@@ -1,3 +1,3 @@
 export default function Nav() {
-  return <div className="w-screen bg-blue-500">o</div>;
+  return <div className="h-[40px] sticky top-0 w-screen">o</div>;
 }

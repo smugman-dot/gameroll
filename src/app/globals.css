@@ -2,7 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  background-color: black;
-  color: white;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter";
+}
+.fancy-button {
+  position: relative;
+  z-index: 1;
+  padding: 20px 30px;
+  background-color: transparent;
+  border: none;
+  border-radius: 50px;
+  color: #ffffff;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  overflow: hidden;
+  outline: none;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fancy-button::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  left: -50%;
+  top: -50%;
+  width: 200%;
+  height: 200%;
+  background-color: #0d1a14;
+  background-repeat: no-repeat;
+  background-size: 50% 50%, 50% 50%;
+  background-position: 0 0, 100% 0, 100% 100%, 0 100%;
+  background-image: conic-gradient(#00ff9b, #00e1ff, #00ff9b);
+  animation: rotateGlow 4s linear infinite;
+  filter: brightness(0.9);
+  transition: filter 0.3s ease;
+}
+
+.fancy-button::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 2px;
+  top: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  background: #0d1a14; /* A very dark green-tinged color */
+  border-radius: 50px;
+}
+
+/* * The span containing the button text.
+         * Setting a background and using -webkit-background-clip gives the text a gradient fill.
+         * The text color is set to transparent to let the gradient show through.
+        */
+.fancy-button span {
+  background: linear-gradient(90deg, #d4ffef, #a8ffec);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+/* HOVER EFFECTS */
+
+/* * When hovering, the entire button scales up.
+         * A strong, blurred box-shadow is added to create the intense, static glow around the button.
+        */
+.fancy-button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 35px 5px rgba(0, 255, 155, 0.6);
+}
+
+/* The rotating glow becomes brighter and more intense on hover. */
+.fancy-button:hover::before {
+  filter: brightness(1.2);
+}
+
+/* The animation that spins the ::before pseudo-element 360 degrees. */
+@keyframes rotateGlow {
+  100% {
+    transform: rotate(360deg);
+  }
 }
