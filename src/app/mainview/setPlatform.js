@@ -8,7 +8,7 @@ export default function setPlatform(stores) {
     let normalized;
 
     if (name.includes("playstation")) {
-      normalized = "Playstation";
+      normalized = "Sony PS";
     } else if (name.includes("nintendo")) {
       normalized = "Nintendo";
     } else if (name.includes("steam")) {
