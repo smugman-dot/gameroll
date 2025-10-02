@@ -13,7 +13,7 @@ export default function setPlatform(stores) {
       normalized = "Nintendo";
     } else if (name.includes("steam")) {
       normalized = "PC";
-    } else if (name.includes("xbox") && !name.includes("360")) {
+    } else if (name.includes("xbox")) {
       normalized = "Xbox";
     } else {
       normalized = store.platform.name;

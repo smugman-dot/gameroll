@@ -10,6 +10,7 @@ import setPlatform from "./setPlatform";
 export default function Main() {
   const [games, setGames] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [lastActiveIndex, setLastActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
@@ -67,6 +68,84 @@ export default function Main() {
     }
   }, [activeIndex, games, loading]);
 
+  // Handler for Swiper's onSlideChange
+  const handleSlideChange = (swiper) => {
+    setLastActiveIndex(activeIndex);
+    setActiveIndex(swiper.activeIndex);
+  };
+
+  const getTranslateY = (currentIndex) => {
+    if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
+
+    if (activeIndex > lastActiveIndex) {
+      return currentIndex < activeIndex
+        ? "translate-y-[-50px] opacity-0"
+        : "translate-y-[50px] opacity-0";
+    }
+
+    if (activeIndex < lastActiveIndex) {
+      return currentIndex > activeIndex
+        ? "translate-y-[50px] opacity-0"
+        : "translate-y-[-50px] opacity-0";
+    }
+
+    return "translate-y-[50px] opacity-0";
+  };
+
+  const getH1TranslateY = (currentIndex) => {
+    if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
+
+    if (activeIndex > lastActiveIndex) {
+      return currentIndex < activeIndex
+        ? "translate-y-[-40px] opacity-0"
+        : "translate-y-[40px] opacity-0";
+    }
+
+    if (activeIndex < lastActiveIndex) {
+      return currentIndex > activeIndex
+        ? "translate-y-[40px] opacity-0"
+        : "translate-y-[-40px] opacity-0";
+    }
+
+    return "translate-y-[40px] opacity-0";
+  };
+
+  const getGroupTranslateY = (currentIndex) => {
+    if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
+
+    if (activeIndex > lastActiveIndex) {
+      return currentIndex < activeIndex
+        ? "translate-y-[-10px] opacity-0"
+        : "translate-y-[10px] opacity-0";
+    }
+
+    if (activeIndex < lastActiveIndex) {
+      return currentIndex > activeIndex
+        ? "translate-y-[10px] opacity-0"
+        : "translate-y-[-10px] opacity-0";
+    }
+
+    return "translate-y-[10px] opacity-0";
+  };
+
+  const getGenresTranslateX = (currentIndex) => {
+    if (activeIndex === currentIndex) return "translate-x-0 opacity-100";
+
+    if (activeIndex > lastActiveIndex) {
+      return currentIndex < activeIndex
+        ? "translate-x-[-50px] opacity-0"
+        : "translate-x-[50px] opacity-0";
+    }
+
+    if (activeIndex < lastActiveIndex) {
+      return currentIndex > activeIndex
+        ? "translate-x-[50px] opacity-0"
+        : "translate-x-[-50px] opacity-0";
+    }
+
+    return "translate-x-[50px] opacity-0";
+  };
+
   if (loading && games.length === 0)
     return (
       <div className="flex justify-center items-center h-screen">
@@ -80,7 +159,7 @@ export default function Main() {
       slidesPerView={1}
       mousewheel={true}
       modules={[Mousewheel]}
-      onSlideChange={(swiper) => setActiveIndex(swiper.activeIndex)}
+      onSlideChange={handleSlideChange}
       className="h-screen w-screen"
     >
       {games.map((game, index) => (
@@ -88,7 +167,7 @@ export default function Main() {
           <div className="relative h-screen w-screen bg-gradient-to-br from-[#292929] via-[#0c1011] to-[#211b1c] flex justify-center items-center">
             <div
               className={`relative w-[94vw] h-[90vh] rounded-[40px] overflow-hidden shadow-[0px_10px_32px_16px_rgba(0,_0,_0,_0.1)]
-                transition-all duration-700 
+                transition-all duration-700
                 ${
                   activeIndex === index
                     ? "opacity-100 scale-105"
@@ -110,44 +189,47 @@ export default function Main() {
               <div className="absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
 
               <div className="absolute inset-y-[35%] inset-x-[3%] flex flex-col gap-[10px] items-start h-full w-full justify-start">
+                {/* Genres */}
                 <div className="flex items-center gap-[5px] text-[white]">
-                  {game.genres.map((genre, index) => (
+                  {game.genres.map((genre, i) => (
                     <span
                       key={genre.id}
-                      className="flex items-center gap-[5px]"
+                      className={`flex items-center gap-[5px] transition-transform duration-500 ease-out ${getGenresTranslateX(
+                        index
+                      )}`}
+                      style={{ transitionDelay: `${i * 100}ms` }}
                     >
                       <span>{genre.name}</span>
-                      {index < game.genres.length - 1 && (
+                      {i < game.genres.length - 1 && (
                         <span className="w-[4px] h-[4px] bg-[white] rounded-full inline-block"></span>
                       )}
                     </span>
                   ))}
                 </div>
 
+                {/* Game Name */}
                 <h1
-                  className={`text-[46px] text-[white] font-bold drop-shadow-lg transition-all duration-700 ${
-                    activeIndex === index
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-10 opacity-0"
-                  }`}
+                  className={`text-[46px] text-[white] font-bold drop-shadow-lg transition-all duration-700 ${getH1TranslateY(
+                    index
+                  )}`}
                 >
                   {game.name}
                 </h1>
+
+                {/* Release Date */}
                 <p
-                  className={`text-[18px] text-[white] transition-all duration-700 delay-100 ${
-                    activeIndex === index
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-5 opacity-0"
-                  }`}
+                  className={`text-[18px] text-[white] transition-all duration-700 delay-100 ${getGroupTranslateY(
+                    index
+                  )}`}
                 >
                   {game.released?.split("-")[0]}
                 </p>
+
+                {/* Star Rating and Platforms */}
                 <div
-                  className={`transition-all flex flex-col gap-[25px] duration-700 delay-200 ${
-                    activeIndex === index
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-5 opacity-0"
-                  }`}
+                  className={`transition-all flex flex-col gap-[25px] duration-700 delay-200 ${getGroupTranslateY(
+                    index
+                  )}`}
                 >
                   <StarRating rating={game.rating} />
                   <div className="flex gap-[10px] justify-center items-center bg-[#21212160] rounded-[50px]">
