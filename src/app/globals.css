@@ -1,13 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Inter";
-}
+@import "tailwindcss";
 .fancy-button {
   position: relative;
   z-index: 1;
@@ -60,7 +51,6 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-fill-color: transparent;
 }
 
 .fancy-button:hover {
@@ -75,5 +65,20 @@
 @keyframes rotateGlow {
   100% {
     transform: rotate(360deg);
+  }
+}
+@media (max-width: 768px) {
+  .fancy-button {
+    padding: 14px 22px;
+    font-size: 0.75rem;
+    border-radius: 40px;
+  }
+
+  .fancy-button::after {
+    left: 1.5px;
+    top: 1.5px;
+    width: calc(100% - 3px);
+    height: calc(100% - 3px);
+    border-radius: 40px;
   }
 }

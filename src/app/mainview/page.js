@@ -39,7 +39,6 @@ export default function Main() {
         genres: game.genres,
       }));
       setGames(filteredData);
-      console.log(filteredData);
       setLoading(false);
     };
 
@@ -72,24 +71,6 @@ export default function Main() {
   const handleSlideChange = (swiper) => {
     setLastActiveIndex(activeIndex);
     setActiveIndex(swiper.activeIndex);
-  };
-
-  const getTranslateY = (currentIndex) => {
-    if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
-
-    if (activeIndex > lastActiveIndex) {
-      return currentIndex < activeIndex
-        ? "translate-y-[-50px] opacity-0"
-        : "translate-y-[50px] opacity-0";
-    }
-
-    if (activeIndex < lastActiveIndex) {
-      return currentIndex > activeIndex
-        ? "translate-y-[50px] opacity-0"
-        : "translate-y-[-50px] opacity-0";
-    }
-
-    return "translate-y-[50px] opacity-0";
   };
 
   const getH1TranslateY = (currentIndex) => {
@@ -166,7 +147,7 @@ export default function Main() {
         <SwiperSlide key={game.id}>
           <div className="relative h-screen w-screen bg-gradient-to-br from-[#292929] via-[#0c1011] to-[#211b1c] flex justify-center items-center">
             <div
-              className={`relative w-[94vw] h-[90vh] rounded-[40px] overflow-hidden shadow-[0px_10px_32px_16px_rgba(0,_0,_0,_0.1)]
+              className={`relative w-[100vw] md:w-[94vw] h-[100vh] md:h-[90vh] md:rounded-[40px] overflow-hidden shadow-[0px_10px_32px_16px_rgba(0,_0,_0,_0.1)]
                 transition-all duration-700
                 ${
                   activeIndex === index
@@ -175,20 +156,23 @@ export default function Main() {
                 }
               `}
             >
-              <Image
-                src={game.background_image}
-                alt={game.name}
-                fill
-                sizes="(max-width: 768px) 100vw, 94vw"
-                style={{ objectFit: "cover" }}
-                className={`transition-transform duration-700 ${
-                  activeIndex === index ? "scale-105" : "scale-100"
-                }`}
-                priority={activeIndex === index}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
+              <div className="relative w-full h-full overflow-hidden">
+                <Image
+                  src={game.background_image}
+                  alt={game.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 100vh"
+                  className={`transition-transform duration-700
+      ${activeIndex === index ? "scale-105" : "scale-100"} 
+      object-cover object-top`}
+                  priority={activeIndex === index}
+                />
+              </div>
+              <div className="md:hidden absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-[#0c1011] via-[#0c1011] to-transparent pointer-events-none"></div>
 
-              <div className="absolute inset-y-[35%] inset-x-[3%] flex flex-col gap-[10px] items-start h-full w-full justify-start">
+              <div className="invisible md:visible absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
+
+              <div className="p-[15px] md:p-0 absolute inset-y-[35%] inset-x-[3%] flex flex-col gap-[10px] items-start h-full w-full justify-start">
                 {/* Genres */}
                 <div className="flex items-center gap-[5px] text-[white]">
                   {game.genres.map((genre, i) => (
@@ -209,7 +193,7 @@ export default function Main() {
 
                 {/* Game Name */}
                 <h1
-                  className={`text-[46px] text-[white] font-bold drop-shadow-lg transition-all duration-700 ${getH1TranslateY(
+                  className={`text-[32px] md:text-[46px] text-white font-bold drop-shadow-lg transition-all duration-700 ${getH1TranslateY(
                     index
                   )}`}
                 >
@@ -218,7 +202,7 @@ export default function Main() {
 
                 {/* Release Date */}
                 <p
-                  className={`text-[18px] text-[white] transition-all duration-700 delay-100 ${getGroupTranslateY(
+                  className={`text-[14px] md:text-[18px] text-[white] transition-all duration-700 delay-100 ${getGroupTranslateY(
                     index
                   )}`}
                 >
@@ -227,16 +211,16 @@ export default function Main() {
 
                 {/* Star Rating and Platforms */}
                 <div
-                  className={`transition-all flex flex-col gap-[25px] duration-700 delay-200 ${getGroupTranslateY(
+                  className={`transition-all flex flex-col gap-[20px] duration-700 delay-200 ${getGroupTranslateY(
                     index
                   )}`}
                 >
                   <StarRating rating={game.rating} />
-                  <div className="flex gap-[10px] justify-center items-center bg-[#21212160] rounded-[50px]">
-                    <button className="fancy-button mt-4">
+                  <div className="flex flex-col md:flex-row gap-4 md:justify-center md:items-center md:bg-[#21212160] rounded-[50px] p-[5px]">
+                    <button className="fancy-button w-60">
                       <span>Purchase Game</span>
                     </button>
-                    <div className="flex gap-[10px] p-[7px]">
+                    <div className="flex gap-[10px]">
                       {game.stores.map((store) => (
                         <Image
                           key={store.id}
