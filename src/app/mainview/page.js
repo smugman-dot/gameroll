@@ -125,7 +125,6 @@ export default function Main() {
     }
     return "translate-x-[50px] opacity-0";
   };
-  // ...
 
   if (loading && games.length === 0)
     return (
@@ -170,7 +169,7 @@ export default function Main() {
                 }
               `}
               >
-                <div className="relative w-full h-[90dvh] md:h-full md:w-full overflow-hidden">
+                <div className="relative w-full h-50 md:h-full md:w-full overflow-hidden">
                   <Image
                     src={game.background_image}
                     alt={game.name}
