@@ -6,8 +6,9 @@ import GenreView from "./GenreView";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
-import setPlatform from "./setPlatform";
+import setPlatform from "../lib/setPlatform";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchGames } from "../lib/fetchGames";
 
 export default function Main() {
   const [games, setGames] = useState([]);
@@ -16,31 +17,13 @@ export default function Main() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const [selectedGenre, setSelectedGenre] = useState(null);
-
+  const [selectedGenre, setSelectedGenre] = useState("");
   const pagesCache = useRef(new Map());
-
-  async function FetchPageCached(page) {
-    if (pagesCache.current.has(page)) return pagesCache.current.get(page);
-    const res = await fetch(`/api/games?page=${page}`, { cache: "no-store" });
-    const newData = await res.json();
-    pagesCache.current.set(page, newData);
-    return newData;
-  }
 
   useEffect(() => {
     const fetchInitial = async () => {
       setLoading(true);
-      const initialData = await FetchPageCached(1);
-      const filteredData = initialData.results.map((game) => ({
-        id: game.id,
-        name: game.name,
-        released: game.released,
-        background_image: game.background_image,
-        rating: game.rating,
-        stores: setPlatform(game.platforms),
-        genres: game.genres,
-      }));
+      const filteredData = await fetchGames({ page: 1 });
       setGames(filteredData);
       setLoading(false);
     };
@@ -51,22 +34,15 @@ export default function Main() {
     if (activeIndex >= games.length - 3 && !loading && games.length > 0) {
       setLoading(true);
       const nextPage = currentPage + 1;
-      FetchPageCached(nextPage).then((newData) => {
-        const filteredData = newData.results.map((game) => ({
-          id: game.id,
-          name: game.name,
-          released: game.released,
-          background_image: game.background_image,
-          rating: game.rating,
-          stores: setPlatform(game.platforms),
-          genres: game.genres,
-        }));
-        setGames((prev) => [...prev, ...filteredData]);
-        setCurrentPage(nextPage);
-        setLoading(false);
-      });
+      fetchGames({ page: nextPage, genres: selectedGenre }).then(
+        (filteredData) => {
+          setGames((prev) => [...prev, ...filteredData]);
+          setCurrentPage(nextPage);
+          setLoading(false);
+        }
+      );
     }
-  }, [activeIndex, games, loading]);
+  }, [activeIndex, games, loading, selectedGenre]);
 
   const handleSlideChange = (swiper) => {
     setLastActiveIndex(activeIndex);
@@ -74,13 +50,14 @@ export default function Main() {
   };
 
   const handleGenreClick = (genre) => {
-    setSelectedGenre(genre);
+    setSelectedGenre(genre.slug);
+    setCurrentPage(1);
+    pagesCache.current.clear();
   };
 
   const handleCloseGenreView = () => {
-    setSelectedGenre(null);
+    setSelectedGenre("");
   };
-
   const getH1TranslateY = (currentIndex) => {
     if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
     if (activeIndex > lastActiveIndex) {

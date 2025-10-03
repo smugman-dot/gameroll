@@ -1,91 +1,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
-
-const mockGames = [
-  {
-    id: 1,
-    name: "Cyberpunk 2077",
-    rating: 4.1,
-    background_image:
-      "https://media.rawg.io/media/games/26d/26d4437715bee60138dab4a7c8c59c62.jpg",
-  },
-  {
-    id: 2,
-    name: "The Witcher 3",
-    rating: 4.8,
-    background_image:
-      "https://media.rawg.io/media/games/618/618c2031a07bbff6b4f611f10b6bcdbc.jpg",
-  },
-  {
-    id: 3,
-    name: "Red Dead Redemption 2",
-    rating: 4.7,
-    background_image:
-      "https://media.rawg.io/media/games/511/5118aff5091cb3efec399c808f8c598f.jpg",
-  },
-  {
-    id: 4,
-    name: "Elden Ring",
-    rating: 4.9,
-    background_image:
-      "https://media.rawg.io/media/games/5ec/5ecac5cb026ec26a56efcc546364e348.jpg",
-  },
-  {
-    id: 5,
-    name: "God of War",
-    rating: 4.8,
-    background_image:
-      "https://media.rawg.io/media/games/4be/4be6a6ad0364751a96229c56bf69be59.jpg",
-  },
-  {
-    id: 6,
-    name: "Hades",
-    rating: 4.6,
-    background_image:
-      "https://media.rawg.io/media/games/1f4/1f47a270b8f241e4676b14d39ec620f7.jpg",
-  },
-  {
-    id: 7,
-    name: "Hollow Knight",
-    rating: 4.5,
-    background_image:
-      "https://media.rawg.io/media/games/4cf/4cfc6b7f1850590a4634b08bfab308ab.jpg",
-  },
-  {
-    id: 8,
-    name: "Portal 2",
-    rating: 4.9,
-    background_image:
-      "https://media.rawg.io/media/games/328/3283617cb7d75d67257fc58339188742.jpg",
-  },
-  {
-    id: 9,
-    name: "BioShock Infinite",
-    rating: 4.4,
-    background_image:
-      "https://media.rawg.io/media/games/fc1/fc1307a2774506b5bd65d7e8424664a7.jpg",
-  },
-];
-
-const StarRating = ({ rating }) => {
-  const fullStars = Math.floor(rating);
-  const halfStar = rating % 1 >= 0.5;
-  const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
-  return (
-    <div className="flex items-center text-yellow-400">
-      {[...Array(fullStars)].map((_, i) => (
-        <span key={`f${i}`}>★</span>
-      ))}
-      {halfStar && <span>☆</span>}
-      {[...Array(emptyStars)].map((_, i) => (
-        <span key={`e${i}`} className="text-gray-500">
-          ★
-        </span>
-      ))}
-      <span className="ml-2 text-xs text-gray-300">{rating.toFixed(1)}</span>
-    </div>
-  );
-};
+import { useEffect, useState, useRef } from "react";
+import { fetchGamesCached } from "../lib/fetchGames";
 
 const GameCard = ({ game, index }) => {
   const cardVariants = {
@@ -148,6 +64,47 @@ const GameCard = ({ game, index }) => {
 };
 
 export default function GenreView({ genre, onClose }) {
+  const [games, setGames] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  const pagesCache = useRef(new Map());
+
+  useEffect(() => {
+    setGames([]);
+    setCurrentPage(1);
+    pagesCache.current.clear();
+
+    const loadInitial = async () => {
+      setLoading(true);
+      const firstPage = await fetchGamesCached(
+        { page: 1, genres: genre.slug },
+        pagesCache
+      );
+      setGames(firstPage);
+      setLoading(false);
+    };
+
+    loadInitial();
+  }, [genre]);
+
+  const handleScroll = async (e) => {
+    const bottom =
+      e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 50;
+
+    if (bottom && !loading) {
+      setLoading(true);
+      const nextPage = currentPage + 1;
+      const moreGames = await fetchGamesCached(
+        { page: nextPage, genres: genre.slug },
+        pagesCache
+      );
+      setGames((prev) => [...prev, ...moreGames]);
+      setCurrentPage(nextPage);
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div
       key="genre-view"
@@ -155,13 +112,15 @@ export default function GenreView({ genre, onClose }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center p-3 md:p-6 overflow-y-scroll overflow-x-hidden  [&::-webkit-scrollbar]:w-2
-  [&::-webkit-scrollbar-track]:rounded-full
-  [&::-webkit-scrollbar-track]:bg-gray-100
-  [&::-webkit-scrollbar-thumb]:rounded-full
-  [&::-webkit-scrollbar-thumb]:bg-gray-300
-  dark:[&::-webkit-scrollbar-track]:bg-neutral-700
-  dark:[&::-webkit-scrollbar-thumb]:bg-neutral-500"
+      onScroll={handleScroll}
+      className="absolute inset-0 z-10 flex flex-col items-center justify-start p-3 md:p-6 overflow-y-scroll overflow-x-hidden
+        [&::-webkit-scrollbar]:w-2
+        [&::-webkit-scrollbar-track]:rounded-full
+        [&::-webkit-scrollbar-track]:bg-gray-100
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        [&::-webkit-scrollbar-thumb]:bg-gray-300
+        dark:[&::-webkit-scrollbar-track]:bg-neutral-700
+        dark:[&::-webkit-scrollbar-thumb]:bg-neutral-500"
       style={{ perspective: "2500px", transformStyle: "preserve-3d" }}
     >
       <button
@@ -181,6 +140,7 @@ export default function GenreView({ genre, onClose }) {
         >
           {genre.name} Games
         </motion.h2>
+
         <motion.div
           initial="hidden"
           animate="visible"
@@ -188,10 +148,12 @@ export default function GenreView({ genre, onClose }) {
           className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6"
           style={{ transformStyle: "preserve-3d" }}
         >
-          {mockGames.map((game, index) => (
+          {games.map((game, index) => (
             <GameCard key={game.id} game={game} index={index} />
           ))}
         </motion.div>
+
+        {loading && <p className="text-white mt-4">Loading more games...</p>}
       </div>
     </motion.div>
   );

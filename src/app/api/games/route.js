@@ -2,10 +2,12 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const page = searchParams.get("page") || 1;
   const search = searchParams.get("search") || "";
+  const genres = searchParams.get("genres") || "";
 
-  const url = `https://api.rawg.io/api/games?key=${
-    process.env.API_KEY
-  }&page=${page}&page_size=20&search=${encodeURIComponent(search)}`;
+  let url = `https://api.rawg.io/api/games?key=${process.env.API_KEY}&page=${page}&page_size=20`;
+
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (genres) url += `&genres=${genres}`;
 
   try {
     const r = await fetch(url);
