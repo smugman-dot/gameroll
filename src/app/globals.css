@@ -82,3 +82,71 @@
     border-radius: 40px;
   }
 }
+@layer utilities {
+  /* Blob movement */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    25% {
+      transform: translate(50px, -60px) scale(1.1);
+    }
+    50% {
+      transform: translate(-40px, 40px) scale(0.9);
+    }
+    75% {
+      transform: translate(30px, 20px) scale(1.05);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+  .animate-blob {
+    animation: blob 15s infinite ease-in-out;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+
+  /* Blob gradient color shift */
+  @keyframes gradient-shift {
+    0% {
+      background: linear-gradient(45deg, #84f556, #22c55e);
+    }
+    25% {
+      background: linear-gradient(45deg, #22c55e, #84f556);
+    }
+    50% {
+      background: linear-gradient(45deg, #16a34a, #84f556);
+    }
+    75% {
+      background: linear-gradient(45deg, #84f556, #16a34a);
+    }
+    100% {
+      background: linear-gradient(45deg, #84f556, #22c55e);
+    }
+  }
+  .animate-gradient {
+    animation: gradient-shift 20s infinite alternate ease-in-out;
+  }
+
+  /* Text gradient animation */
+  @keyframes text-gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  .animate-text-gradient {
+    background-size: 200% 200%;
+    animation: text-gradient 5s ease infinite;
+  }
+}

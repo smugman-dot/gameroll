@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Nav from "./navbar/page";
 import Main from "./mainview/page";
 import "./globals.css";
@@ -8,8 +9,18 @@ import { inter } from "./fonts/font";
 export default function Home() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
+    const storedGenres = JSON.parse(
+      localStorage.getItem("preferredGenres") || "[]"
+    );
+
+    if (!storedGenres || storedGenres.length === 0) {
+      router.push("/onboarding");
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const res = await fetch("/api/games", { cache: "no-store" });
@@ -23,7 +34,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, []);
+  }, [router]);
 
   if (loading)
     return (
