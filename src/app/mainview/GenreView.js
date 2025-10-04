@@ -63,25 +63,38 @@ const GameCard = ({ game, index }) => {
   );
 };
 
+const globalCache = new Map();
+
 export default function GenreView({ genre, onClose }) {
   const [games, setGames] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const pagesCache = useRef(new Map());
+  const pagesCache = useRef(globalCache);
 
   useEffect(() => {
-    setGames([]);
-    setCurrentPage(1);
-    pagesCache.current.clear();
+    const key = genre;
 
     const loadInitial = async () => {
+      if (pagesCache.current.has(key)) {
+        const cached = pagesCache.current.get(key);
+        setGames(cached.games);
+        setCurrentPage(cached.page);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       const firstPage = await fetchGamesCached(
         { page: 1, genres: genre },
         pagesCache
       );
+
+      const cacheData = { games: firstPage, page: 1 };
+      pagesCache.current.set(key, cacheData);
+
       setGames(firstPage);
+      setCurrentPage(1);
       setLoading(false);
     };
 
@@ -93,13 +106,19 @@ export default function GenreView({ genre, onClose }) {
       e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 50;
 
     if (bottom && !loading) {
+      const key = genre;
       setLoading(true);
       const nextPage = currentPage + 1;
       const moreGames = await fetchGamesCached(
-        { page: nextPage, genres: genre.slug },
+        { page: nextPage, genres: genre },
         pagesCache
       );
-      setGames((prev) => [...prev, ...moreGames]);
+
+      const updatedGames = [...games, ...moreGames];
+
+      pagesCache.current.set(key, { games: updatedGames, page: nextPage });
+
+      setGames(updatedGames);
       setCurrentPage(nextPage);
       setLoading(false);
     }

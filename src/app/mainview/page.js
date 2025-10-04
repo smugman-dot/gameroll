@@ -6,7 +6,6 @@ import GenreView from "./GenreView";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
-import setPlatform from "../lib/setPlatform";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchGames } from "../lib/fetchGames";
 
