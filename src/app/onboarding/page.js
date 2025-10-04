@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // SVG Icons
 const PlusIcon = () => (
   <svg
-    width="16"
-    height="16"
+    width="18"
+    height="18"
     viewBox="0 0 24 24"
     fill="none"
     stroke="white"
@@ -22,8 +22,8 @@ const PlusIcon = () => (
 
 const CheckIcon = () => (
   <svg
-    width="16"
-    height="16"
+    width="18"
+    height="18"
     viewBox="0 0 24 24"
     fill="none"
     stroke="white"
@@ -34,23 +34,36 @@ const CheckIcon = () => (
     <polyline points="20 6 9 17 4 12"></polyline>
   </svg>
 );
-
-// Green Button Component
-const GreenButton = ({ text, onClick }) => (
+const SubmitBtn = ({ text, onClick }) => (
   <motion.button
     onClick={onClick}
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 1.2, delay: 3 }}
-    className="px-6 py-3 rounded-2xl font-bold text-[#03045E] text-lg
-               bg-gradient-to-r from-[#B8FB3C] to-[#6EFF3C]
-               shadow-lg shadow-[#B8FB3C]/40
-               hover:from-[#A6E82F] hover:to-[#8CE500]
-               transition-all duration-300 ease-out"
+    whileHover={{ scale: 1.03, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)" }}
+    whileTap={{ scale: 0.97 }}
+    transition={{ duration: 0.3, ease: "easeOut" }}
+    className="
+          relative
+          px-6 py-3
+          rounded-2xl
+          font-semibold
+          text-white
+          bg-gradient-to-br from-gray-100/20 to-gray-200/10
+          backdrop-blur-lg
+          border border-white/20
+          shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_12px_rgba(0,0,0,0.1)]
+          overflow-hidden
+          group
+        "
   >
-    {text}
+    <span
+      className="
+          absolute inset-0
+          bg-gradient-to-r from-blue-500/30 to-purple-500/30
+          opacity-0 group-hover:opacity-100
+          transition-opacity duration-500
+          blur-xl
+        "
+    ></span>
+    <span className="relative z-10">{text}</span>
   </motion.button>
 );
 
@@ -69,25 +82,43 @@ export default function Onboarding() {
       }
     }
     fetchGenres();
+
+    const saved = JSON.parse(localStorage.getItem("selectedGenres") || "[]");
+    const savedMap = {};
+    saved.forEach((g) => (savedMap[g.id] = g));
+    setSelected(savedMap);
   }, []);
 
-  const toggleSelect = (id) => {
-    setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleStart = () => {
-    alert("Let's go! Selected genres: " + JSON.stringify(selected));
+  // Toggle genre selection
+  const toggleSelect = (genre) => {
+    setSelected((prev) => {
+      const newSelected = { ...prev };
+      if (newSelected[genre.id]) {
+        delete newSelected[genre.id];
+      } else {
+        newSelected[genre.id] = {
+          id: genre.id,
+          slug: genre.slug,
+          name: genre.name,
+        };
+      }
+      localStorage.setItem(
+        "selectedGenres",
+        JSON.stringify(Object.values(newSelected))
+      );
+      return newSelected;
+    });
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#01010c] flex justify-center items-center px-4">
-      {/* Animated Blobs */}
+    <div className="relative w-screen h-screen overflow-hidden bg-[#01010c] flex flex-col items-center px-4 pt-16">
+      {/* Blobs */}
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
           className="absolute w-[350px] h-[350px] rounded-full blur-[120px] opacity-30"
           style={{
-            background: `radial-gradient(circle at 30% 30%, rgba(184, 251, 60, 0.6), transparent 70%)`,
+            background: `radial-gradient(circle at 30% 30%, rgba(144, 238, 144, 0.6), transparent 70%)`,
           }}
           animate={{
             x: [-150 + i * 50, 150 - i * 50, -150 + i * 50],
@@ -103,22 +134,21 @@ export default function Onboarding() {
         />
       ))}
 
-      {/* Fixed Text */}
-      <div className="absolute top-[20%] w-full flex flex-col items-center gap-2 z-10">
+      {/* Top Text */}
+      <div className="flex flex-col items-center gap-2 z-10">
         <motion.h1
           initial={{ opacity: 0, y: 60 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.5, ease: "easeOut", delay: 0.5 }}
-          className="font-bold text-[38px] bg-clip-text text-transparent relative z-10 bg-gradient-to-r from-lime-400 via-green-500 to-lime-600 animate-text-gradient"
+          transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
+          className="font-bold text-[38px] bg-clip-text text-transparent bg-gradient-to-r from-lime-400 via-green-500 to-lime-600 animate-text-gradient"
         >
           Welcome Gamer!
         </motion.h1>
-
         <motion.p
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.2, delay: 1.5, ease: "easeOut" }}
-          className="text-white relative z-10 text-center"
+          className="text-white text-center"
         >
           What games do you play?
         </motion.p>
@@ -129,20 +159,18 @@ export default function Onboarding() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1.2, delay: 2.2, ease: "easeOut" }}
-        className="flex flex-wrap justify-center gap-3 mt-[10%] relative z-10 min-h-[200px]"
+        className="flex flex-wrap justify-center gap-3 mt-6 p-12 max-h-[50%] overflow-y-auto w-full z-10"
       >
         {genres.length > 0
           ? genres.map((genre) => (
               <motion.div
                 key={genre.id}
-                onClick={() => toggleSelect(genre.id)}
-                className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 cursor-pointer transition-all duration-300
-                  ${
-                    selected[genre.id]
-                      ? "shadow-[0_0_20px_rgba(184,251,60,0.5)]"
-                      : ""
-                  }
-                `}
+                onClick={() => toggleSelect(genre)}
+                className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 cursor-pointer transition-all duration-300 ${
+                  selected[genre.id]
+                    ? "shadow-[0_0_20px_rgba(0,255,100,0.5)]"
+                    : ""
+                }`}
                 whileHover={{ scale: 1.05 }}
               >
                 {/* Left Icon */}
@@ -171,8 +199,6 @@ export default function Onboarding() {
                     )}
                   </AnimatePresence>
                 </div>
-
-                {/* Name */}
                 <span className="text-white font-semibold select-none">
                   {genre.name}
                 </span>
@@ -188,12 +214,15 @@ export default function Onboarding() {
               ))}
       </motion.div>
 
-      {/* Start Button */}
-      <div className="absolute bottom-[10%] flex justify-center w-full z-10">
-        <GreenButton text="Start Gaming" onClick={handleStart} />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1, delay: 3.2, ease: "easeOut" }}
+        className="mt-6 z-10"
+      >
+        <SubmitBtn text="Start Gaming" onClick={() => console.log("Start!")} />
+      </motion.div>
 
-      {/* Extra CSS Animations */}
       <style jsx>{`
         @keyframes text-gradient {
           0%,
