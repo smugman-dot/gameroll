@@ -78,7 +78,7 @@ export default function GenreView({ genre, onClose }) {
     const loadInitial = async () => {
       setLoading(true);
       const firstPage = await fetchGamesCached(
-        { page: 1, genres: genre.slug },
+        { page: 1, genres: genre },
         pagesCache
       );
       setGames(firstPage);
