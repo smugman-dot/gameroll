@@ -1,51 +1,46 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Nav from "./navbar/page";
 import Main from "./mainview/page";
 import "./globals.css";
-import { inter } from "./fonts/font";
 
 export default function Home() {
-  const [data, setData] = useState(null);
+  const [preferredGenres, setPreferredGenres] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const storedGenres = JSON.parse(
-      localStorage.getItem("preferredGenres") || "[]"
-    );
+    // 1. Get the raw array from localStorage
+    const storedGenresRaw = localStorage.getItem("preferredGenres");
+    const storedGenres = storedGenresRaw ? JSON.parse(storedGenresRaw) : [];
 
+    // 2. If empty, kick them to onboarding
     if (!storedGenres || storedGenres.length === 0) {
       router.push("/onboarding");
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/games", { cache: "no-store" });
-        const json = await res.json();
-        setData(json);
-      } catch (err) {
-        console.error("Failed to fetch games:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // 3. Transform [{id:1, slug:"action"}, {id:2, slug:"rpg"}] -> "action,rpg"
+    // This string is what the API expects.
+    const genreSlugString = storedGenres.map((g) => g.slug).join(",");
 
-    fetchData();
+    setPreferredGenres(genreSlugString);
+    setLoading(false);
   }, [router]);
 
-  if (loading)
+  // Show loading while we check authentication/preferences
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        Loading...
+      <div className="flex justify-center items-center h-screen bg-[#0c1011] text-white">
+        Loading preferences...
       </div>
     );
+  }
 
   return (
     <div className="flex flex-col w-screen h-screen max-h-screen">
-      {data && <Main data={data} />}
+      {/* 4. Pass the genre string to Main */}
+      {preferredGenres && <Main preferredGenres={preferredGenres} />}
     </div>
   );
 }

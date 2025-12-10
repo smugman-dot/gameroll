@@ -1,12 +1,13 @@
 import setPlatform from "./setPlatform";
 
-export async function fetchGames({ page = 1, genres = "", search = "" }) {
-  const res = await fetch(
-    `/api/games?page=${page}&genres=${genres}&search=${encodeURIComponent(
-      search
-    )}`,
-    { cache: "no-store" }
-  );
+export async function fetchGames({ page = 1, genres = "", search = "", seed = "" }) {
+  // Pass the seed to the API call. This random number forces the API server
+  // (the code handling /api/games) to return a different or re-ordered set of games, 
+  // providing freshness. **Note: True randomness depends on the server utilizing this 'seed' 
+  // parameter for sorting or cache-busting.**
+  const url = `/api/games?page=${page}&genres=${genres}&search=${encodeURIComponent(search)}&seed=${seed}`;
+
+  const res = await fetch(url, { cache: "no-store" });
 
   if (!res.ok) {
     throw new Error("Failed to fetch games");
@@ -23,17 +24,4 @@ export async function fetchGames({ page = 1, genres = "", search = "" }) {
     stores: setPlatform(game.platforms),
     genres: game.genres,
   }));
-}
-
-export async function fetchGamesCached(options, cacheRef) {
-  const { page = 1, genres = "", search = "" } = options;
-  const cacheKey = `page:${page}-genres:${genres}-search:${search}`;
-
-  if (cacheRef.current.has(cacheKey)) {
-    return cacheRef.current.get(cacheKey);
-  }
-
-  const results = await fetchGames({ page, genres, search });
-  cacheRef.current.set(cacheKey, results);
-  return results;
 }

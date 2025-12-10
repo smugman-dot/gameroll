@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useEffect, useState, useRef } from "react";
-import { fetchGamesCached } from "../lib/fetchGames";
+import { useEffect, useState } from "react";
+// Switched to import fetchGames directly instead of the cached version
+import { fetchGames } from "../lib/fetchGames";
 
 const GameCard = ({ game, index }) => {
   const cardVariants = {
@@ -63,35 +64,25 @@ const GameCard = ({ game, index }) => {
   );
 };
 
-const globalCache = new Map();
-
 export default function GenreView({ genre, onClose }) {
   const [games, setGames] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const pagesCache = useRef(globalCache);
+  // Use a random number as a seed, generated once when the component mounts.
+  // This ensures a new, random set of games every time the user opens the genre view.
+  const [randomSeed] = useState(Math.random().toString());
 
   useEffect(() => {
-    const key = genre;
-
     const loadInitial = async () => {
-      if (pagesCache.current.has(key)) {
-        const cached = pagesCache.current.get(key);
-        setGames(cached.games);
-        setCurrentPage(cached.page);
-        setLoading(false);
-        return;
-      }
-
       setLoading(true);
-      const firstPage = await fetchGamesCached(
-        { page: 1, genres: genre },
-        pagesCache
-      );
 
-      const cacheData = { games: firstPage, page: 1 };
-      pagesCache.current.set(key, cacheData);
+      // Use fetchGames directly for the initial load (Page 1), passing the random seed
+      const firstPage = await fetchGames({
+        page: 1,
+        genres: genre,
+        seed: randomSeed // Pass the seed
+      });
 
       setGames(firstPage);
       setCurrentPage(1);
@@ -99,24 +90,27 @@ export default function GenreView({ genre, onClose }) {
     };
 
     loadInitial();
-  }, [genre]);
+    // Re-fetch when the genre prop changes or the random seed changes (on mount)
+  }, [genre, randomSeed]);
 
   const handleScroll = async (e) => {
+    // Check if user has scrolled near the bottom (within 50px)
     const bottom =
       e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 50;
 
     if (bottom && !loading) {
-      const key = genre;
       setLoading(true);
       const nextPage = currentPage + 1;
-      const moreGames = await fetchGamesCached(
-        { page: nextPage, genres: genre },
-        pagesCache
-      );
+
+      // Use fetchGames directly for infinite scroll, ensuring we use the same random seed 
+      // for consistent subsequent pages within this session
+      const moreGames = await fetchGames({
+        page: nextPage,
+        genres: genre,
+        seed: randomSeed // Pass the seed
+      });
 
       const updatedGames = [...games, ...moreGames];
-
-      pagesCache.current.set(key, { games: updatedGames, page: nextPage });
 
       setGames(updatedGames);
       setCurrentPage(nextPage);
@@ -157,7 +151,7 @@ export default function GenreView({ genre, onClose }) {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="text-3xl md:text-4xl font-bold text-white mb-6 md:mb-8 drop-shadow-lg"
         >
-          {genre.name} Games
+          {genre} Games
         </motion.h2>
 
         <motion.div
