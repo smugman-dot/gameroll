@@ -8,6 +8,7 @@ import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchGames } from "../lib/fetchGames";
+import { getRecommendationEngine } from "../lib/recommendationEngine";
 
 export default function Main({ preferredGenres }) {
   const [games, setGames] = useState([]);
@@ -15,20 +16,32 @@ export default function Main({ preferredGenres }) {
   const [lastActiveIndex, setLastActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-
-  // selectedGenre is for when a user clicks a specific tag (e.g. "Shooter")
   const [selectedGenre, setSelectedGenre] = useState("");
 
-  // 1. Initial Fetch based on props (User Preferences)
+  // Recommendation engine
+  const engine = useRef(getRecommendationEngine()).current;
+
+  // Track view time for current game
+  const viewStartTime = useRef(Date.now());
+  const currentGameRef = useRef(null);
+
+  // 1. Initial Fetch - Get large pool of games
   useEffect(() => {
     const fetchInitial = async () => {
       setLoading(true);
       try {
-        const initialData = await fetchGames({
-          page: 1,
-          genres: preferredGenres,
-        });
-        setGames(initialData);
+        // Fetch multiple pages to get a good pool (100 games)
+        const pages = [1, 2, 3, 4, 5];
+        const allFetches = pages.map(page =>
+          fetchGames({ page, genres: preferredGenres })
+        );
+
+        const results = await Promise.all(allFetches);
+        const allGames = results.flat();
+
+        // Let recommendation engine rank and organize them
+        const smartFeed = engine.getSmartFeed(allGames);
+        setGames(smartFeed);
       } catch (error) {
         console.error("Error fetching initial games:", error);
       }
@@ -40,64 +53,93 @@ export default function Main({ preferredGenres }) {
     }
   }, [preferredGenres]);
 
-  // 2. Infinite Scroll Logic
+  // 2. Track view time when slide changes
+  const handleSlideChange = (swiper) => {
+    const newIndex = swiper.activeIndex;
+
+    // Record analytics for previous game
+    if (currentGameRef.current) {
+      const viewDuration = (Date.now() - viewStartTime.current) / 1000; // seconds
+
+      if (viewDuration < 2) {
+        // Quick skip = user not interested
+        engine.recordSkip(currentGameRef.current);
+      } else {
+        // Longer view = user interested
+        engine.recordView(currentGameRef.current, viewDuration);
+      }
+    }
+
+    // Set up tracking for new game
+    viewStartTime.current = Date.now();
+    currentGameRef.current = games[newIndex];
+
+    setLastActiveIndex(activeIndex);
+    setActiveIndex(newIndex);
+  };
+
+  // 3. Infinite scroll - fetch more and re-rank
   useEffect(() => {
-    // Trigger when within 3 slides of the end
-    if (activeIndex >= games.length - 3 && !loading && games.length > 0) {
+    if (activeIndex >= games.length - 5 && !loading && games.length > 0) {
       setLoading(true);
       const nextPage = currentPage + 1;
 
-      // Determine what to fetch: Specific genre click OR User preferences
-      const genresToFetch = selectedGenre || preferredGenres;
+      fetchGames({
+        page: nextPage,
+        genres: preferredGenres
+      }).then((newGames) => {
+        // Rank new games with engine
+        const rankedNew = engine.rankGames(newGames);
 
-      fetchGames({ page: nextPage, genres: genresToFetch }).then((newGames) => {
-        // Filter duplicates just in case
-        const uniqueNewGames = newGames.filter(
-          (ng) => !games.some((og) => og.id === ng.id),
+        // Filter out duplicates
+        const uniqueNew = rankedNew.filter(
+          ng => !games.some(og => og.id === ng.id)
         );
 
-        setGames((prev) => [...prev, ...uniqueNewGames]);
+        setGames(prev => [...prev, ...uniqueNew]);
         setCurrentPage(nextPage);
         setLoading(false);
       });
     }
-  }, [
-    activeIndex,
-    games,
-    loading,
-    selectedGenre,
-    preferredGenres,
-    currentPage,
-  ]);
+  }, [activeIndex, games, loading, preferredGenres, currentPage]);
 
-  const handleSlideChange = (swiper) => {
-    setLastActiveIndex(activeIndex);
-    setActiveIndex(swiper.activeIndex);
-  };
-
-  // 3. Handle clicking a specific genre pill
+  // 4. Handle genre click
   const handleGenreClick = (genre) => {
+    // Track that user is interested in this genre
+    engine.recordGenreInterest(genre.slug);
+
     setSelectedGenre(genre.slug);
     setCurrentPage(1);
-    setGames([]); // Clear games for smooth transition
+    setGames([]);
     setLoading(true);
 
-    fetchGames({ page: 1, genres: genre.slug }).then((data) => {
-      setGames(data);
+    // Fetch games in this genre
+    const pages = [1, 2, 3];
+    Promise.all(pages.map(page =>
+      fetchGames({ page, genres: genre.slug })
+    )).then(results => {
+      const allGames = results.flat();
+      const smartFeed = engine.getSmartFeed(allGames);
+      setGames(smartFeed);
       setLoading(false);
     });
   };
 
-  // 4. Handle closing the genre view (Return to Feed)
+  // 5. Close genre view
   const handleCloseGenreView = () => {
-    setSelectedGenre(""); // Clear specific selection
+    setSelectedGenre("");
     setCurrentPage(1);
-    setGames([]); // Clear to reload feed
+    setGames([]);
     setLoading(true);
 
-    // Fetch user preferences again
-    fetchGames({ page: 1, genres: preferredGenres }).then((data) => {
-      setGames(data);
+    // Fetch fresh feed based on updated preferences
+    const pages = [1, 2, 3, 4, 5];
+    Promise.all(pages.map(page =>
+      fetchGames({ page, genres: preferredGenres })
+    )).then(results => {
+      const allGames = results.flat();
+      const smartFeed = engine.getSmartFeed(allGames);
+      setGames(smartFeed);
       setLoading(false);
     });
   };
@@ -142,7 +184,7 @@ export default function Main({ preferredGenres }) {
   if (loading && games.length === 0)
     return (
       <div className="flex justify-center items-center h-screen bg-[#0c1011] text-white">
-        Loading games...
+        Loading your personalized feed...
       </div>
     );
 

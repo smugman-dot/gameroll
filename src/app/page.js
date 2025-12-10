@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Main from "./mainview/page";
+import DebugPanel from "./components/DebugPanel";
 import "./globals.css";
 
 export default function Home() {
@@ -21,14 +22,12 @@ export default function Home() {
     }
 
     // 3. Transform [{id:1, slug:"action"}, {id:2, slug:"rpg"}] -> "action,rpg"
-    // This string is what the API expects.
     const genreSlugString = storedGenres.map((g) => g.slug).join(",");
 
     setPreferredGenres(genreSlugString);
     setLoading(false);
   }, [router]);
 
-  // Show loading while we check authentication/preferences
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen bg-[#0c1011] text-white">
@@ -39,7 +38,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col w-screen h-screen max-h-screen">
-      {/* 4. Pass the genre string to Main */}
+      {/* Debug Panel to see algorithm learning */}
+      <DebugPanel />
+
+      {/* Main Feed */}
       {preferredGenres && <Main preferredGenres={preferredGenres} />}
     </div>
   );
