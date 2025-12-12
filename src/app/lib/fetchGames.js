@@ -14,14 +14,14 @@ export async function fetchGames({ page = 1, genres = "", search = "", seed = ""
   }
 
   const data = await res.json();
-
+  console.log("API response:", data.results[0]);
   return data.results.map((game) => ({
     id: game.id,
     name: game.name,
     released: game.released,
     background_image: game.background_image,
     rating: game.rating,
-    stores: setPlatform(game.platforms),
+    stores: setPlatform(game.platforms || []),
     genres: game.genres,
   }));
 }
