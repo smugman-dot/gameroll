@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 .fancy-button {
   position: relative;
   z-index: 1;
@@ -67,6 +68,7 @@
     transform: rotate(360deg);
   }
 }
+
 @media (max-width: 768px) {
   .fancy-button {
     padding: 14px 22px;
@@ -82,31 +84,40 @@
     border-radius: 40px;
   }
 }
+
 @layer utilities {
+
   /* Blob movement */
   @keyframes blob {
     0% {
       transform: translate(0px, 0px) scale(1);
     }
+
     25% {
       transform: translate(50px, -60px) scale(1.1);
     }
+
     50% {
       transform: translate(-40px, 40px) scale(0.9);
     }
+
     75% {
       transform: translate(30px, 20px) scale(1.05);
     }
+
     100% {
       transform: translate(0px, 0px) scale(1);
     }
   }
+
   .animate-blob {
     animation: blob 15s infinite ease-in-out;
   }
+
   .animation-delay-2000 {
     animation-delay: 2s;
   }
+
   .animation-delay-4000 {
     animation-delay: 4s;
   }
@@ -116,19 +127,24 @@
     0% {
       background: linear-gradient(45deg, #84f556, #22c55e);
     }
+
     25% {
       background: linear-gradient(45deg, #22c55e, #84f556);
     }
+
     50% {
       background: linear-gradient(45deg, #16a34a, #84f556);
     }
+
     75% {
       background: linear-gradient(45deg, #84f556, #16a34a);
     }
+
     100% {
       background: linear-gradient(45deg, #84f556, #22c55e);
     }
   }
+
   .animate-gradient {
     animation: gradient-shift 20s infinite alternate ease-in-out;
   }
@@ -138,15 +154,77 @@
     0% {
       background-position: 0% 50%;
     }
+
     50% {
       background-position: 100% 50%;
     }
+
     100% {
       background-position: 0% 50%;
     }
   }
+
   .animate-text-gradient {
     background-size: 200% 200%;
     animation: text-gradient 5s ease infinite;
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 1024px) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    body {
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Better touch feedback */
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Optimize scrollbar for mobile */
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Improve touch interactions */
+    input,
+    button,
+    a {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Tablet optimizations (768px - 1024px) */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .fancy-button {
+      padding: 16px 24px;
+      font-size: 0.875rem;
+    }
+  }
+
+  /* Small mobile (< 640px) */
+  @media (max-width: 640px) {
+    .fancy-button {
+      padding: 14px 20px;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+    }
   }
 }

@@ -38,8 +38,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col w-screen h-screen max-h-screen">
-      {/* Debug Panel to see algorithm learning */}
-      <DebugPanel />
 
       {/* Main Feed */}
       {preferredGenres && <Main preferredGenres={preferredGenres} />}

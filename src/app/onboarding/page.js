@@ -83,7 +83,7 @@ export default function Onboarding() {
       } else {
         newSelected[genre.id] = { id: genre.id, slug: genre.slug, name: genre.name };
       }
-      
+
       // Save to localStorage on every change for persistence during the session.
       localStorage.setItem("preferredGenres", JSON.stringify(Object.values(newSelected)));
 
@@ -154,7 +154,7 @@ export default function Onboarding() {
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.2, delay: 2.2, ease: "easeOut" }} className="flex flex-wrap justify-center gap-3 mt-6 p-12 max-h-[50%] overflow-y-auto w-full z-10">
         {genres.length > 0 ? genres.map((genre) => (
-          <motion.div key={genre.id} onClick={() => toggleSelect(genre)} className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 cursor-pointer transition-all duration-300 ${ selected[genre.id] ? "shadow-[0_0_20px_rgba(0,255,100,0.5)]" : "" }`} whileHover={{ scale: 1.05 }}>
+          <motion.div key={genre.id} onClick={() => toggleSelect(genre)} className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 cursor-pointer transition-all duration-300 ${selected[genre.id] ? "shadow-[0_0_20px_rgba(0,255,100,0.5)]" : ""}`} whileHover={{ scale: 1.05 }}>
             <div className="w-6 h-6 relative flex items-center justify-center">
               <AnimatePresence>
                 {!selected[genre.id] ? (
@@ -172,10 +172,10 @@ export default function Onboarding() {
           </motion.div>
         )) : Array(6).fill(0).map((_, i) => <div key={i} className="px-4 py-2 rounded-2xl bg-white/5 opacity-20 w-32 h-10" />)}
       </motion.div>
-      
+
       {/* Action Area */}
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 3.2, ease: "easeOut" }} className="mt-6 z-10 flex flex-col items-center gap-2">
-         <AnimatePresence>
+        <AnimatePresence>
           {showError && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}
