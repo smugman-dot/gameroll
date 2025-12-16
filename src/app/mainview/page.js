@@ -8,12 +8,9 @@ import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchGames, fetchGameDetails, fetchGameScreenshots } from "../lib/fetchGames";
-import { Navigation, Pagination } from 'swiper/modules';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { getRecommendationEngine } from "../lib/recommendationEngine";
-
-// TODO: fix stuttery scrolling in mobile
 
 export default function Main({ preferredGenres }) {
   const [games, setGames] = useState([]);
@@ -28,8 +25,6 @@ export default function Main({ preferredGenres }) {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [swiperInstance, setSwiperInstance] = useState(null);
   const [screenshotIndex, setScreenshotIndex] = useState(0);
-  const [prevEl, setPrevEl] = useState(null);
-  const [nextEl, setNextEl] = useState(null);
 
   const engine = useRef(getRecommendationEngine()).current;
   const viewStartTime = useRef(Date.now());
@@ -250,9 +245,10 @@ export default function Main({ preferredGenres }) {
                 {/* Content Overlay */}
                 <div className="absolute inset-0 flex flex-col lg:flex-row justify-center items-center">
                   <div className="p-4 sm:p-6 lg:p-0 absolute lg:inset-y-[35%] lg:inset-x-[3%] inset-x-[3%] inset-y-[10%] flex flex-col gap-2 sm:gap-4 lg:gap-[10px] items-start h-auto w-full justify-start overflow-visible lg:overflow-visible max-h-[35vh] lg:max-h-none pb-0 lg:pb-0 z-10 lg:pointer-events-none">
+
                     {/* Genre Pills */}
                     {game.genres && game.genres.length > 0 && (
-                      <div className="flex flex-wrap lg:flex-row items-center gap-2 lg:gap-[5px] text-white text-xs sm:text-sm lg:text-base">
+                      <div className="flex flex-wrap lg:flex-row items-center gap-2 lg:gap-[5px] text-white text-xs sm:text-sm lg:text-base pointer-events-auto">
                         {game.genres.map((genre, i) => (
                           <span
                             key={genre.id}
@@ -261,7 +257,7 @@ export default function Main({ preferredGenres }) {
                           >
                             <span
                               onClick={() => handleGenreClick(genre)}
-                              className={`p-[6px] rounded-[30px] transition-colors duration-300 hover:bg-[#5c5b5860] hover:cursor-pointer backdrop-blur-md ${activeIndex == index ? "bg-[#5c5b5840]/60" : "bg-transparent"}`}
+                              className={`p-[6px] px-3 rounded-[30px] transition-all duration-300 hover:bg-white hover:text-black hover:scale-105 hover:cursor-pointer backdrop-blur-md border border-white/10 ${activeIndex == index ? "bg-[#5c5b5840]/60" : "bg-transparent"}`}
                             >
                               {genre.name}
                             </span>
@@ -282,32 +278,46 @@ export default function Main({ preferredGenres }) {
 
                     {/* Rating & Stores */}
                     <div
-                      className={`transition-all flex flex-col gap-3 sm:gap-4 lg:gap-[20px] duration-700 delay-200 w-full lg:w-auto ${getGroupTranslateY(index)}`}
+                      className={`transition-all flex flex-col gap-3 sm:gap-4 lg:gap-[20px] duration-700 delay-200 w-full lg:w-auto pointer-events-auto ${getGroupTranslateY(index)}`}
                     >
                       <StarRating rating={game.rating} />
-                      <div className="flex flex-col gap-3 lg:flex-row lg:justify-center lg:items-center lg:bg-[#21212160] lg:rounded-[50px] lg:p-[5px]">
-                        <button className="fancy-button w-full lg:w-60 text-sm lg:text-base">
-                          <span>Purchase Game</span>
+
+                      <div className="flex flex-col gap-3 lg:flex-row lg:justify-center lg:items-center lg:bg-[#21212160] lg:backdrop-blur-md lg:border lg:border-white/5 lg:rounded-[50px] lg:p-[8px]">
+
+                        <button className="group relative w-full lg:w-auto bg-white text-black px-8 py-3 rounded-full font-bold text-sm lg:text-base transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 overflow-hidden">
+                          <span className="relative z-10">Get Now</span>
+
+                          <svg
+                            className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                          </svg>
+                          <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-0"></div>
                         </button>
+
                         {game.stores && game.stores.length > 0 && (
-                          <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap">
+                          <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2">
                             {game.stores.map((store) => (
-                              <Image
-                                key={store.id}
-                                alt={store.name}
-                                width={34}
-                                height={34}
-                                src={"/" + store.name + ".svg"}
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder_icon.svg";
-                                }}
-                              />
+                              <div key={store.id} className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
+                                <Image
+                                  alt={store.name}
+                                  width={28}
+                                  height={28}
+                                  src={"/" + store.name + ".svg"}
+                                  className="filter invert drop-shadow-md"
+                                  onError={(e) => {
+                                    e.currentTarget.src = "/placeholder_icon.svg";
+                                  }}
+                                />
+                              </div>
                             ))}
                           </div>
                         )}
                       </div>
                     </div>
-
                   </div>
                   {/* Right Side Details Panel */}
                   <motion.div

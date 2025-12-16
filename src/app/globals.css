@@ -1,173 +1,6 @@
 @import "tailwindcss";
 
-.fancy-button {
-  position: relative;
-  z-index: 1;
-  padding: 20px 30px;
-  background-color: transparent;
-  border: none;
-  border-radius: 50px;
-  color: #ffffff;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  cursor: pointer;
-  overflow: hidden;
-  outline: none;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.fancy-button::before {
-  content: "";
-  position: absolute;
-  z-index: -2;
-  left: -50%;
-  top: -50%;
-  width: 200%;
-  height: 200%;
-  background-color: #0d1a14;
-  background-repeat: no-repeat;
-  background-size: 50% 50%, 50% 50%;
-  background-position: 0 0, 100% 0, 100% 100%, 0 100%;
-  background-image: conic-gradient(#00ff9b, #00e1ff, #00ff9b);
-  animation: rotateGlow 4s linear infinite;
-  filter: brightness(0.9);
-  transition: filter 0.3s ease;
-}
-
-.fancy-button::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  left: 2px;
-  top: 2px;
-  width: calc(100% - 4px);
-  height: calc(100% - 4px);
-  background: #0d1a14;
-  border-radius: 50px;
-}
-
-.fancy-button span {
-  background: linear-gradient(90deg, #d4ffef, #a8ffec);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.fancy-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 0 35px 5px rgba(0, 255, 155, 0.6);
-}
-
-.fancy-button:hover::before {
-  filter: brightness(1.2);
-}
-
-@keyframes rotateGlow {
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 768px) {
-  .fancy-button {
-    padding: 14px 22px;
-    font-size: 0.75rem;
-    border-radius: 40px;
-  }
-
-  .fancy-button::after {
-    left: 1.5px;
-    top: 1.5px;
-    width: calc(100% - 3px);
-    height: calc(100% - 3px);
-    border-radius: 40px;
-  }
-}
-
 @layer utilities {
-
-  /* Blob movement */
-  @keyframes blob {
-    0% {
-      transform: translate(0px, 0px) scale(1);
-    }
-
-    25% {
-      transform: translate(50px, -60px) scale(1.1);
-    }
-
-    50% {
-      transform: translate(-40px, 40px) scale(0.9);
-    }
-
-    75% {
-      transform: translate(30px, 20px) scale(1.05);
-    }
-
-    100% {
-      transform: translate(0px, 0px) scale(1);
-    }
-  }
-
-  .animate-blob {
-    animation: blob 15s infinite ease-in-out;
-  }
-
-  .animation-delay-2000 {
-    animation-delay: 2s;
-  }
-
-  .animation-delay-4000 {
-    animation-delay: 4s;
-  }
-
-  /* Blob gradient color shift */
-  @keyframes gradient-shift {
-    0% {
-      background: linear-gradient(45deg, #84f556, #22c55e);
-    }
-
-    25% {
-      background: linear-gradient(45deg, #22c55e, #84f556);
-    }
-
-    50% {
-      background: linear-gradient(45deg, #16a34a, #84f556);
-    }
-
-    75% {
-      background: linear-gradient(45deg, #84f556, #16a34a);
-    }
-
-    100% {
-      background: linear-gradient(45deg, #84f556, #22c55e);
-    }
-  }
-
-  .animate-gradient {
-    animation: gradient-shift 20s infinite alternate ease-in-out;
-  }
-
-  /* Text gradient animation */
-  @keyframes text-gradient {
-    0% {
-      background-position: 0% 50%;
-    }
-
-    50% {
-      background-position: 100% 50%;
-    }
-
-    100% {
-      background-position: 0% 50%;
-    }
-  }
-
-  .animate-text-gradient {
-    background-size: 200% 200%;
-    animation: text-gradient 5s ease infinite;
-  }
 
   /* Mobile optimizations */
   @media (max-width: 1024px) {
@@ -227,4 +60,78 @@
       line-height: 1.2;
     }
   }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shiny-button {
+  position: relative;
+  background-color: white;
+  color: black;
+  padding: 1rem 3rem;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: none;
+  letter-spacing: 0.02em;
+}
+
+.shiny-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: #333;
+  color: #666;
+  box-shadow: none;
+}
+
+.shiny-button:not(:disabled):hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
+}
+
+.shiny-button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.shiny-button-shine {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  z-index: 0;
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
+}
+
+.shiny-button:not(:disabled):hover .shiny-button-shine {
+  animation: shimmer 1.5s infinite;
+}
+
+.shiny-button span,
+.shiny-button svg {
+  position: relative;
+  z-index: 10;
 }

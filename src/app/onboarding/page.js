@@ -4,62 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-// --- SVG Icons ---
-const PlusIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"></line>
-    <line x1="5" y1="12" x2="19" y2="12"></line>
-  </svg>
-);
-
-const CheckIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12"></polyline>
-  </svg>
-);
-
-// --- UI Components ---
-const SubmitBtn = ({ text, onClick, animate }) => (
-  <motion.button
-    onClick={onClick}
-    whileHover={{ scale: 1.03, boxShadow: "0 8px 32px rgba(0, 0, 0, 0.2)" }}
-    whileTap={{ scale: 0.97 }}
-    transition={{ duration: 0.3, ease: "easeOut" }}
-    animate={animate}
-    className="relative px-6 py-3 rounded-2xl font-semibold text-white bg-gradient-to-br from-gray-100/20 to-gray-200/10 backdrop-blur-lg border border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_4px_12px_rgba(0,0,0,0.1)] overflow-hidden group"
-  >
-    <span className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></span>
-    <span className="relative z-10">{text}</span>
-  </motion.button>
-);
-
 export default function Onboarding() {
   const [genres, setGenres] = useState([]);
   const [selected, setSelected] = useState({});
   const [isExiting, setIsExiting] = useState(false);
-  const [showError, setShowError] = useState(false);
   const router = useRouter();
 
-  // --- Data Fetching and Initialization ---
   useEffect(() => {
-    // Check localStorage for already selected genres.
     const storedGenresRaw = localStorage.getItem("preferredGenres");
     const storedGenres = storedGenresRaw ? JSON.parse(storedGenresRaw) : [];
 
-    // If the user has already completed selection (3+ genres), redirect them.
     if (storedGenres.length >= 3) {
-      router.replace("/"); // Use replace to avoid user going back to onboarding
+      router.replace("/");
       return;
-    }
-
-    // If they have partially selected genres, load them into the state.
-    // This makes their choices persistent if they refresh the page.
-    if (storedGenres.length > 0) {
-      const selectedMap = {};
-      storedGenres.forEach(genre => {
-        selectedMap[genre.id] = genre;
-      });
-      setSelected(selectedMap);
     }
 
     async function fetchGenres() {
@@ -69,12 +26,29 @@ export default function Onboarding() {
         setGenres(data.results || []);
       } catch (err) {
         console.error("Failed to fetch genres:", err);
+        // Fallback data
+        setGenres([
+          { id: 1, name: "Action", slug: "action" },
+          { id: 2, name: "Indie", slug: "indie" },
+          { id: 3, name: "Adventure", slug: "adventure" },
+          { id: 4, name: "RPG", slug: "role-playing-games-rpg" },
+          { id: 5, name: "Strategy", slug: "strategy" },
+          { id: 6, name: "Shooter", slug: "shooter" },
+          { id: 7, name: "Casual", slug: "casual" },
+          { id: 8, name: "Simulation", slug: "simulation" },
+          { id: 9, name: "Puzzle", slug: "puzzle" },
+          { id: 10, name: "Arcade", slug: "arcade" },
+          { id: 11, name: "Platformer", slug: "platformer" },
+          { id: 12, name: "Racing", slug: "racing" },
+          { id: 13, name: "Sports", slug: "sports" },
+          { id: 14, name: "Fighting", slug: "fighting" },
+          { id: 15, name: "Family", slug: "family" },
+        ]);
       }
     }
     fetchGenres();
   }, [router]);
 
-  // --- Event Handlers ---
   const toggleSelect = (genre) => {
     setSelected((prev) => {
       const newSelected = { ...prev };
@@ -83,123 +57,181 @@ export default function Onboarding() {
       } else {
         newSelected[genre.id] = { id: genre.id, slug: genre.slug, name: genre.name };
       }
-
-      // Save to localStorage on every change for persistence during the session.
-      localStorage.setItem("preferredGenres", JSON.stringify(Object.values(newSelected)));
-
       return newSelected;
     });
   };
 
   const handleStartGaming = () => {
-    const selectedCount = Object.keys(selected).length;
-    if (selectedCount < 3) {
-      setShowError(true);
-      setTimeout(() => setShowError(false), 2000); // Hide error after 2 seconds
-      return;
-    }
+    if (Object.keys(selected).length < 3) return;
 
-    // localStorage is already up-to-date from toggleSelect.
-    // Just trigger exit animation and navigate.
+    localStorage.setItem("preferredGenres", JSON.stringify(Object.values(selected)));
     setIsExiting(true);
+
     setTimeout(() => {
       router.push("/");
-    }, 800); // Delay should match the exit animation duration
+    }, 800);
   };
 
-  // --- Animation Variants ---
-  const pageVariants = {
-    initial: { opacity: 0 },
-    animate: { opacity: 1, transition: { duration: 0.5 } },
-    exit: { opacity: 0, y: -50, transition: { duration: 0.8, ease: "easeInOut" } },
+  const selectedCount = Object.keys(selected).length;
+  const isValid = selectedCount >= 3;
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05, delayChildren: 0.2 }
+    }
   };
 
-  const shakeAnimation = {
-    x: [0, -10, 10, -10, 10, 0],
-    transition: { duration: 0.5 },
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30 },
+    show: { opacity: 1, y: 0 }
   };
-
 
   return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate={isExiting ? "exit" : "animate"}
-      className="relative w-screen h-screen overflow-hidden bg-[#01010c] flex flex-col items-center px-4 pt-16"
-    >
-      {/* Background Blobs */}
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          className="absolute w-[350px] h-[350px] rounded-full blur-[120px] opacity-30"
-          style={{ background: `radial-gradient(circle at 30% 30%, rgba(144, 238, 144, 0.6), transparent 70%)` }}
-          animate={{
-            x: [-150 + i * 50, 150 - i * 50, -150 + i * 50],
-            y: [-100 + i * 30, 100 - i * 30, -100 + i * 30],
-            rotate: [0, 360, 0],
-          }}
-          transition={{ duration: 25 + i * 5, repeat: Infinity, repeatType: "loop", ease: "easeInOut" }}
-        />
-      ))}
+    <div className="relative w-screen h-screen overflow-hidden bg-[#0c1011] text-white font-sans selection:bg-white/20">
 
-      {/* Page Content */}
-      <div className="flex flex-col items-center gap-2 z-10">
-        <motion.h1 initial={{ opacity: 0, y: 60 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }} className="font-bold text-[38px] bg-clip-text text-transparent bg-gradient-to-r from-lime-400 via-green-500 to-lime-600 animate-text-gradient">
-          Welcome Gamer!
-        </motion.h1>
-        <motion.p initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.2, delay: 1.5, ease: "easeOut" }} className="text-white text-center">
-          What games do you play?
-        </motion.p>
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+
+        <motion.div
+          animate={{
+            x: [0, 50, -30, 0],
+            y: [0, 30, 50, 0],
+            scale: [1, 1.2, 0.9, 1]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-20 -left-20 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] mix-blend-screen"
+        />
+
+        <motion.div
+          animate={{
+            x: [0, -40, 20, 0],
+            y: [0, -60, -20, 0],
+            scale: [1, 1.1, 0.95, 1]
+          }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute -bottom-40 -right-20 w-[700px] h-[700px] bg-blue-600/10 rounded-full blur-[120px] mix-blend-screen"
+        />
+
+        {/* Moving Center Accent */}
+        <motion.div
+          animate={{ opacity: [0.1, 0.3, 0.1] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03),transparent_70%)]"
+        />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.2, delay: 2.2, ease: "easeOut" }} className="flex flex-wrap justify-center gap-3 mt-6 p-12 max-h-[50%] overflow-y-auto w-full z-10">
-        {genres.length > 0 ? genres.map((genre) => (
-          <motion.div key={genre.id} onClick={() => toggleSelect(genre)} className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 cursor-pointer transition-all duration-300 ${selected[genre.id] ? "shadow-[0_0_20px_rgba(0,255,100,0.5)]" : ""}`} whileHover={{ scale: 1.05 }}>
-            <div className="w-6 h-6 relative flex items-center justify-center">
-              <AnimatePresence>
-                {!selected[genre.id] ? (
-                  <motion.div key="plus" initial={{ scale: 0 }} animate={{ scale: [0, 1.3, 1] }} exit={{ scale: 0 }} className="absolute">
-                    <PlusIcon />
+      <AnimatePresence>
+        {!isExiting && (
+          <motion.div
+            className="relative z-10 flex flex-col h-full w-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="flex-1 overflow-y-auto w-full scrollbar-hide">
+              <div className="max-w-7xl mx-auto px-6 pt-12 md:pt-20 pb-40">
+
+                {/* Header */}
+                <div className="flex flex-col gap-4 mb-10 md:mb-16">
+                  <motion.h1
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2, duration: 0.8 }}
+                    className="text-5xl md:text-7xl font-bold tracking-tighter"
+                  >
+                    Curate your <br />
+                    <span className="text-white/30">Experience.</span>
+                  </motion.h1>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="flex items-center gap-3 text-lg md:text-xl text-white/50 font-light"
+                  >
+                    <div className="h-[1px] w-12 bg-white/20"></div>
+                    <p>Select <span className="text-white font-medium">{Math.max(0, 3 - selectedCount)}</span> more genres</p>
                   </motion.div>
-                ) : (
-                  <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: [0, 1.4, 1] }} exit={{ scale: 0 }} className="absolute">
-                    <CheckIcon />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                </div>
+
+                {/* Grid */}
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4"
+                >
+                  {genres.map((genre) => {
+                    const isSelected = !!selected[genre.id];
+                    return (
+                      <motion.button
+                        key={genre.id}
+                        variants={itemVariants}
+                        onClick={() => toggleSelect(genre)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
+                        className={`
+                          relative group flex flex-col items-center justify-center h-32 md:h-40 rounded-[32px] border transition-all duration-500
+                          ${isSelected
+                            ? "bg-white border-white text-black shadow-[0_0_40px_rgba(255,255,255,0.2)] z-10"
+                            : "bg-[#ffffff05] border-white/5 text-white/40 hover:bg-[#ffffff0a] hover:border-white/10 hover:text-white"
+                          }
+                        `}
+                      >
+                        <span className={`relative z-10 font-medium text-lg md:text-xl tracking-wide transition-colors duration-300 ${isSelected ? "font-bold" : ""}`}>
+                          {genre.name}
+                        </span>
+
+                        {/* Status Dot */}
+                        <div className={`mt-2 w-1.5 h-1.5 rounded-full transition-all duration-300 ${isSelected ? "bg-black" : "bg-white/10 group-hover:bg-white/50"}`} />
+                      </motion.button>
+                    );
+                  })}
+                </motion.div>
+              </div>
             </div>
-            <span className="text-white font-semibold select-none">{genre.name}</span>
+            <div className="fixed bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#0c1011] via-[#0c1011]/90 to-transparent pointer-events-none z-20" />
+
+            <div className="fixed bottom-0 left-0 w-full p-6 md:p-10 z-30 flex items-end justify-between pointer-events-none">
+              <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+
+                <motion.div
+                  className="hidden md:flex flex-col gap-1 pointer-events-auto"
+                  animate={{ opacity: isValid ? 1 : 0.5 }}
+                >
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase text-white/30">Selection</span>
+                  <span className="text-2xl font-medium">{selectedCount} <span className="text-white/30">/ 3</span></span>
+                </motion.div>
+                <div className="w-full md:w-auto pointer-events-auto">
+                  <button
+                    onClick={handleStartGaming}
+                    disabled={!isValid}
+                    className="shiny-button w-full md:min-w-[200px]"
+                  >
+                    <span>{isValid ? "Enter World" : "Pick 3 to Start"}</span>
+                    {isValid && (
+                      <motion.svg
+                        initial={{ x: -5, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </motion.svg>
+                    )}
+                    <div className="shiny-button-shine"></div>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
           </motion.div>
-        )) : Array(6).fill(0).map((_, i) => <div key={i} className="px-4 py-2 rounded-2xl bg-white/5 opacity-20 w-32 h-10" />)}
-      </motion.div>
-
-      {/* Action Area */}
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 3.2, ease: "easeOut" }} className="mt-6 z-10 flex flex-col items-center gap-2">
-        <AnimatePresence>
-          {showError && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="text-red-400 text-sm"
-            >
-              Please select at least 3 genres.
-            </motion.p>
-          )}
-        </AnimatePresence>
-        <SubmitBtn text="Start Gaming" onClick={handleStartGaming} animate={showError ? shakeAnimation : {}} />
-      </motion.div>
-
-      <style jsx>{`
-        @keyframes text-gradient {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        .animate-text-gradient {
-          background-size: 200% 200%;
-          animation: text-gradient 6s ease-in-out infinite;
-        }
-      `}</style>
-    </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
