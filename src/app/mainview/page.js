@@ -12,6 +12,11 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { getRecommendationEngine } from "../lib/recommendationEngine";
 
+// TODO: 
+// fix horrible search engine
+// fix recommendation engine
+
+
 export default function Main({ preferredGenres }) {
   const [games, setGames] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -23,27 +28,170 @@ export default function Main({ preferredGenres }) {
   const [gameDetails, setGameDetails] = useState(null);
   const [screenshots, setScreenshots] = useState([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [swiperInstance, setSwiperInstance] = useState(null);
   const [screenshotIndex, setScreenshotIndex] = useState(0);
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const engine = useRef(getRecommendationEngine()).current;
   const viewStartTime = useRef(Date.now());
   const currentGameRef = useRef(null);
   const isFetchingRef = useRef(false);
-  const screenshotSwiperRef = useRef(null);
+  const pendingSlideIndexRef = useRef(null);
+  const [swiperInstance, setSwiperInstance] = useState(null);
+  const mainSwiperRef = useRef(null);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [activeScreenshot, setActiveScreenshot] = useState(null);
+  const searchTimeoutRef = useRef(null);
+  const detailsRequestRef = useRef(null);
 
-  // Strip HTML tags from description
   const stripHtmlTags = (text) => {
     if (!text) return '';
     return text.replace(/<[^>]*>/g, '');
   };
+  const normalize = (s = "") =>
+    s
+      .toString()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const scoreAndFilterResults = (results = [], rawQuery = "") => {
+    const q = normalize(rawQuery);
+    if (!q) return results || [];
+
+    const tokens = q.split(" ").filter(Boolean);
+    const scored = (results || []).map((game) => {
+      const name = normalize(game.name || "");
+      let score = 0;
+
+
+      if (name === q) score += 120;
+      if (name.startsWith(q)) score += 90;
+
+
+      for (const t of tokens) {
+        if (name.includes(` ${t} `)) score += 18;
+        else if (name.includes(t)) score += 8;
+        const nameWords = name.split(" ");
+        if (nameWords.some(w => w.startsWith(t))) score += 6;
+      }
+
+      if (game.rating) score += Math.min(10, Math.round(game.rating));
+
+      return { game, score };
+    });
+
+    const meaningful = scored.filter(s => s.score > 5).sort((a, b) => b.score - a.score);
+
+    if (meaningful.length > 0) {
+      return meaningful.map(s => s.game);
+    }
+
+    if ((results || []).length > 0) {
+      return results.slice(0, 8);
+    }
+
+    return [];
+  };
+
+  useEffect(() => {
+    if (pendingSlideIndexRef.current !== null && mainSwiperRef.current) {
+      try {
+        mainSwiperRef.current.update?.();
+      } catch (e) {
+      }
+      mainSwiperRef.current.slideTo(pendingSlideIndexRef.current);
+      pendingSlideIndexRef.current = null;
+    }
+  }, [games]);
+
+  const handleSelectSearchResult = (game) => {
+    const existingIndex = games.findIndex(g => g.id === game.id);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+    setShowSearch(false);
+
+    if (existingIndex !== -1) {
+      if (mainSwiperRef.current) {
+        mainSwiperRef.current.slideTo(existingIndex);
+      } else {
+        setActiveIndex(existingIndex);
+      }
+    } else {
+      const insertIndex = activeIndex + 1;
+      pendingSlideIndexRef.current = insertIndex;
+
+      setGames(prev => {
+        const newGames = [...prev];
+        newGames.splice(insertIndex, 0, game);
+        return newGames;
+      });
+    }
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearching(false);
+  };
+
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+
+    const q = searchQuery.trim();
+
+    if (q.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      const currentQuery = q;
+      try {
+        const results = await fetchGames({ page: 1, search: currentQuery });
+
+
+        if (normalize(searchQuery) === normalize(currentQuery)) {
+          const filtered = scoreAndFilterResults(results || [], currentQuery);
+
+          setSearchResults(filtered.length ? filtered : (results || []).slice(0, 8));
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+        if (normalize(searchQuery) === normalize(currentQuery)) {
+          setSearchResults([]);
+        }
+      } finally {
+        if (normalize(searchQuery) === normalize(currentQuery)) {
+          setIsSearching(false);
+        }
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+          searchTimeoutRef.current = null;
+        }
+      }
+    }, 350);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    };
+  }, [searchQuery]);
 
   // 1. Initial fetch
   useEffect(() => {
     const fetchInitial = async () => {
       setLoading(true);
       try {
-        console.log("Fetching initial games for genres:", preferredGenres);
         const initialGames = await fetchGames({ page: 1, genres: preferredGenres });
         setGames(initialGames);
       } catch (error) {
@@ -60,6 +208,8 @@ export default function Main({ preferredGenres }) {
   // 2. Track view time
   const handleSlideChange = (swiper) => {
     const newIndex = swiper.activeIndex;
+    const nextGame = games[newIndex];
+    if (!nextGame) return;
 
     if (currentGameRef.current) {
       const viewDuration = (Date.now() - viewStartTime.current) / 1000;
@@ -71,10 +221,18 @@ export default function Main({ preferredGenres }) {
     }
 
     viewStartTime.current = Date.now();
-    currentGameRef.current = games[newIndex];
+    currentGameRef.current = nextGame;
+
     setLastActiveIndex(activeIndex);
     setActiveIndex(newIndex);
   };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") setShowScreenshotModal(false);
+    };
+    if (showScreenshotModal) window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showScreenshotModal]);
 
   useEffect(() => {
     const shouldFetch = activeIndex >= games.length - 3 && !loading && !isFetchingRef.current;
@@ -88,7 +246,7 @@ export default function Main({ preferredGenres }) {
       fetchGames({ page: nextPage, genres: preferredGenres })
         .then((newGames) => {
           if (newGames && newGames.length > 0) {
-            setGames(prev => [...prev, ...newGames])
+            setGames(prev => [...prev, ...newGames]);
             setCurrentPage(nextPage);
           }
         })
@@ -100,11 +258,11 @@ export default function Main({ preferredGenres }) {
           isFetchingRef.current = false;
         });
     }
-  }, [activeIndex, games.length, preferredGenres]);
+  }, [activeIndex, games.length, preferredGenres, loading, currentPage]);
 
-  // Load game details and screenshots ONLY when panel is visible
+  // Load game details
   useEffect(() => {
-    if (!showDetails) return; // Don't load if panel is hidden
+    if (!showDetails) return;
 
     const loadGameInfo = async () => {
       if (games.length === 0 || !games[activeIndex]) return;
@@ -133,7 +291,6 @@ export default function Main({ preferredGenres }) {
     loadGameInfo();
   }, [activeIndex, games, showDetails]);
 
-  // 4. Genre click
   const handleGenreClick = (genre) => {
     engine.recordGenreInterest(genre.slug);
     setSelectedGenre(genre.slug);
@@ -143,7 +300,7 @@ export default function Main({ preferredGenres }) {
     setSelectedGenre("");
   };
 
-  // Animation helpers
+
   const getH1TranslateY = (currentIndex) => {
     if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
     if (activeIndex > lastActiveIndex) {
@@ -188,11 +345,139 @@ export default function Main({ preferredGenres }) {
     );
   }
 
+  const closeSearchSafely = () => {
+    setShowSearch(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setIsSearching(false);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+  };
+
   return (
     <div className="relative h-screen w-screen bg-gradient-to-br from-[#292929] via-[#0c1011] to-[#211b1c] overflow-hidden">
+      {/* Search Button */}
+      <motion.button
+        onClick={() => setShowSearch(true)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="top-4 left-4 fixed sm:top-9 sm:left-7 z-40 bg-white/10 backdrop-blur-md border border-white/20 text-white p-3 rounded-full hover:bg-white/20 transition-all shadow-lg"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+      </motion.button>
+
+      {/* Search Modal */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 bg-black/80 backdrop-blur-xl search-scroll"
+            onClick={closeSearchSafely}
+          >
+            <motion.div
+              initial={{ y: -50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -50, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+            >
+              {/* Search Input */}
+              <div className="p-4 border-b border-white/10 flex items-center gap-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search for games..."
+                  autoFocus
+                  className="flex-1 bg-transparent text-white text-lg outline-none placeholder:text-gray-500"
+                />
+                <button
+                  onClick={closeSearchSafely}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+
+              {/* Search Results */}
+              <div className="max-h-[60vh] overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/30 border-t-white"></div>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="divide-y divide-white/5">
+                    {searchResults.map((game) => (
+                      <motion.div
+                        key={game.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                        onClick={() => handleSelectSearchResult(game)}
+                        className="p-4 cursor-pointer flex items-center gap-4 transition-colors"
+                      >
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-800">
+                          {game.background_image && (
+                            <Image
+                              src={game.background_image}
+                              alt={game.name}
+                              fill
+                              className="object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-white font-semibold truncate">{game.name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-400">{game.released?.split('-')[0]}</span>
+                            {game.rating && (
+                              <>
+                                <span className="text-xs text-gray-600">•</span>
+                                <span className="text-xs text-yellow-400">★ {game.rating}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : searchQuery.trim().length >= 2 ? (
+                  <div className="py-12 text-center text-gray-500">
+                    No games found for "{searchQuery}"
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-gray-500">
+                    Start typing to search games...
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {selectedGenre && (
-          <GenreView genre={selectedGenre} onClose={handleCloseGenreView} />
+          <GenreView
+            genre={selectedGenre}
+            onClose={handleCloseGenreView}
+            onGameSelect={handleSelectSearchResult}
+          />
         )}
       </AnimatePresence>
 
@@ -202,8 +487,9 @@ export default function Main({ preferredGenres }) {
         mousewheel={true}
         modules={[Mousewheel]}
         onSlideChange={handleSlideChange}
+        onSwiper={(s) => { mainSwiperRef.current = s; }}
         className="h-screen w-screen"
-        allowTouchMove={!selectedGenre}
+        allowTouchMove={!selectedGenre && !showSearch}
       >
         {games.map((game, index) => (
           <SwiperSlide key={`${game.id}-${index}`}>
@@ -219,7 +505,7 @@ export default function Main({ preferredGenres }) {
                 className={`relative w-[100vw] lg:w-[94vw] h-[100vh] lg:h-[90vh] lg:rounded-[40px] overflow-hidden shadow-[0px_10px_32px_16px_rgba(0,_0,_0,_0.1)] transition-all duration-700 ${activeIndex === index ? "opacity-100 lg:scale-105 scale-100" : "opacity-40 scale-95"}`}
               >
                 {/* Image with fallback */}
-                <div className="relative w-full h-1/2 lg:h-full lg:w-full overflow-hidden bg-gray-800">
+                <div className="relative w-full h-[40vh] lg:h-full lg:w-full overflow-hidden bg-gray-800">
                   {game.background_image ? (
                     <Image
                       src={game.background_image}
@@ -244,7 +530,7 @@ export default function Main({ preferredGenres }) {
 
                 {/* Content Overlay */}
                 <div className="absolute inset-0 flex flex-col lg:flex-row justify-center items-center">
-                  <div className="p-4 sm:p-6 lg:p-0 absolute lg:inset-y-[35%] lg:inset-x-[3%] inset-x-[3%] inset-y-[10%] flex flex-col gap-2 sm:gap-4 lg:gap-[10px] items-start h-auto w-full justify-start overflow-visible lg:overflow-visible max-h-[35vh] lg:max-h-none pb-0 lg:pb-0 z-10 lg:pointer-events-none">
+                  <div className="p-5 sm:p-6 lg:p-0 absolute lg:inset-y-[35%] lg:inset-x-[3%] inset-y-[12%] flex flex-col gap-2 sm:gap-4 lg:gap-[10px] items-start h-auto w-full justify-start overflow-visible lg:overflow-visible max-h-[35vh] lg:max-h-none pb-0 lg:pb-0 z-10 lg:pointer-events-none">
 
                     {/* Genre Pills */}
                     {game.genres && game.genres.length > 0 && (
@@ -301,7 +587,7 @@ export default function Main({ preferredGenres }) {
                         {game.stores && game.stores.length > 0 && (
                           <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2">
                             {game.stores.map((store) => (
-                              <div key={store.id} className="opacity-70 hover:opacity-100 transition-opacity cursor-pointer">
+                              <div key={store.id} className="sm:opacity-70 opacity-100 hover:opacity-100 transition-opacity cursor-pointer">
                                 <Image
                                   alt={store.name}
                                   width={28}
@@ -386,12 +672,11 @@ export default function Main({ preferredGenres }) {
                             </a>
                           )}
 
-                          {/* Screenshots Carousel - Play Store Style */}
+                          {/* Screenshots Carousel */}
                           {screenshots.length > 0 && (
                             <div>
                               <h3 className="text-white font-semibold mb-2 sm:mb-3 text-xs sm:text-sm uppercase tracking-wider">Screenshots</h3>
 
-                              {/* Swiper Container with Peek Effect */}
                               <div className="relative">
                                 <Swiper
                                   onSwiper={(swiper) => {
@@ -411,13 +696,16 @@ export default function Main({ preferredGenres }) {
                                     <SwiperSlide key={idx} className="flex justify-center">
                                       <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-gray-900 h-40 sm:h-48 md:h-56 lg:aspect-video lg:h-auto">
                                         <Image
-                                          src={screenshot.image || ''}
-                                          alt={`Screenshot ${idx + 1}`}
+                                          src={screenshot.image}
+                                          alt="Screenshot"
                                           fill
-                                          className="object-cover"
-                                          priority={idx === 0}
-                                          draggable={false}
+                                          className="object-cover cursor-zoom-in"
+                                          onClick={() => {
+                                            setActiveScreenshot(screenshot.image);
+                                            setShowScreenshotModal(true);
+                                          }}
                                         />
+
                                         {/* Subtle gradient overlay */}
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none rounded-2xl" />
                                       </div>
@@ -442,7 +730,7 @@ export default function Main({ preferredGenres }) {
                   </motion.div>
 
                   {/* Mobile Details Section */}
-                  <div className="absolute bottom-0 left-0 right-0 h-1/2 lg:hidden bg-gradient-to-t from-[#0c1011] via-[#0c1011] to-transparent overflow-y-auto p-4 sm:p-6 scrollbar-hide z-20">
+                  <div className="absolute bottom-[10vh] left-0 right-0 h-1/2 lg:hidden bg-gradient-to-t from-[#0c1011] via-[#0c1011] to-transparent overflow-y-auto p-4 sm:p-6 scrollbar-hide z-20">
                     {detailsLoading ? (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-white/50 text-center">
@@ -494,7 +782,7 @@ export default function Main({ preferredGenres }) {
                             href={gameDetails.website}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-block px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors hidden sm:block"
+                            className="inline-block px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-center rounded-lg transition-colors hidden sm:block"
                           >
                             Visit Website →
                           </a>
@@ -525,12 +813,14 @@ export default function Main({ preferredGenres }) {
                                   <SwiperSlide key={idx} className="flex justify-center">
                                     <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-gray-900 h-40 sm:h-48 md:h-56 lg:aspect-video lg:h-auto">
                                       <Image
-                                        src={screenshot.image || ''}
-                                        alt={`Screenshot ${idx + 1}`}
+                                        src={screenshot.image}
+                                        alt="Screenshot"
                                         fill
-                                        className="object-cover"
-                                        priority={idx === 0}
-                                        draggable={false}
+                                        className="object-cover cursor-zoom-in"
+                                        onClick={() => {
+                                          setActiveScreenshot(screenshot.image);
+                                          setShowScreenshotModal(true);
+                                        }}
                                       />
                                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none rounded-2xl" />
                                     </div>
@@ -557,7 +847,48 @@ export default function Main({ preferredGenres }) {
         ))}
       </Swiper>
 
-      {/* Loading indicator at bottom */}
+      <AnimatePresence>
+        {showScreenshotModal && activeScreenshot && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] bg-black/90 backdrop-blur-sm flex items-center justify-center"
+            onClick={() => setShowScreenshotModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 260, damping: 25 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-[90vw] max-h-[90vh]"
+            >
+              <div className="relative w-[90vw] h-[90vh]">
+                <Image
+                  src={activeScreenshot}
+                  alt="Screenshot fullscreen"
+                  fill
+                  className="object-contain rounded-xl shadow-2xl"
+                  priority
+                />
+              </div>
+
+              <button
+                onClick={() => setShowScreenshotModal(false)}
+                className="absolute top-4 right-4 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
       {loading && (
         <div className="absolute bottom-4 sm:bottom-6 lg:bottom-10 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 sm:px-4 py-2 rounded-full backdrop-blur-sm text-xs sm:text-sm">
           Loading more...
