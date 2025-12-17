@@ -458,7 +458,7 @@ export default function Main({ preferredGenres }) {
                   </div>
                 ) : searchQuery.trim().length >= 2 ? (
                   <div className="py-12 text-center text-gray-500">
-                    No games found for "{searchQuery}"
+                    No games found for &quot;{searchQuery}&quot;
                   </div>
                 ) : (
                   <div className="py-12 text-center text-gray-500">
