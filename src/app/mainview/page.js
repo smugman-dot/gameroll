@@ -11,13 +11,16 @@ import { fetchGames, fetchGameDetails, fetchGameScreenshots } from "../lib/fetch
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { getRecommendationEngine } from "../lib/recommendationEngine";
+import { useMemo } from 'react';
 
 // TODO: 
 // fix horrible search engine
 // fix recommendation engine
+// try to prevent game repition in different sessions
 
 
 export default function Main({ preferredGenres }) {
+  const seed = useMemo(() => Date.now(), []);
   const [games, setGames] = useState([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastActiveIndex, setLastActiveIndex] = useState(0);
@@ -43,7 +46,6 @@ export default function Main({ preferredGenres }) {
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [activeScreenshot, setActiveScreenshot] = useState(null);
   const searchTimeoutRef = useRef(null);
-  const detailsRequestRef = useRef(null);
 
   const stripHtmlTags = (text) => {
     if (!text) return '';
@@ -155,7 +157,7 @@ export default function Main({ preferredGenres }) {
     searchTimeoutRef.current = setTimeout(async () => {
       const currentQuery = q;
       try {
-        const results = await fetchGames({ page: 1, search: currentQuery });
+        const results = await fetchGames({ page: 1, search: currentQuery, seed: seed });
 
 
         if (normalize(searchQuery) === normalize(currentQuery)) {
@@ -192,7 +194,7 @@ export default function Main({ preferredGenres }) {
     const fetchInitial = async () => {
       setLoading(true);
       try {
-        const initialGames = await fetchGames({ page: 1, genres: preferredGenres });
+        const initialGames = await fetchGames({ page: 1, genres: preferredGenres, seed: seed });
         setGames(initialGames);
       } catch (error) {
         console.error("Error fetching games:", error);
@@ -243,7 +245,7 @@ export default function Main({ preferredGenres }) {
 
       const nextPage = currentPage + 1;
 
-      fetchGames({ page: nextPage, genres: preferredGenres })
+      fetchGames({ page: nextPage, genres: preferredGenres, seed: seed })
         .then((newGames) => {
           if (newGames && newGames.length > 0) {
             setGames(prev => [...prev, ...newGames]);
