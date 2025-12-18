@@ -592,7 +592,7 @@ export default function Main({ preferredGenres }) {
 
                       <div className="flex flex-col gap-3 lg:flex-row lg:justify-center lg:items-center lg:bg-[#21212160] lg:backdrop-blur-md lg:border lg:border-white/5 lg:rounded-[50px] lg:p-[8px]">
                         {gameDetails && (
-                          <div className="mt-4 flex flex-col gap-2">
+                          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-center lg:gap-4 w-full">
                             {/* Primary "Get Now" button */}
                             <button
                               type="button"
@@ -617,7 +617,7 @@ export default function Main({ preferredGenres }) {
 
                             {/* Individual clickable store icons */}
                             {storeLinks.length > 0 && (
-                              <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2 mt-2">
+                              <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2 mt-2 lg:mt-0 justify-center">
                                 {storeLinks.map((store) => (
                                   <a
                                     key={store.url || store.name}
@@ -643,8 +643,8 @@ export default function Main({ preferredGenres }) {
                             )}
                           </div>
                         )}
-
                       </div>
+
                     </div>
                   </div>
                   {/* Right Side Details Panel */}
