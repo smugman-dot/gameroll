@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fetchGames, fetchGameDetails, fetchGameScreenshots, fetchIGDBStores } from "../lib/fetchGames";
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
-
+import { choosePrimaryStoreLink, iconFilenameForStore, isMobileDevice } from '../lib/PlatformHelpers.js';
 import { getRecommendationEngine } from "../lib/recommendationEngine";
 import { useMemo } from 'react';
 
@@ -49,6 +49,7 @@ export default function Main({ preferredGenres }) {
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   const [activeScreenshot, setActiveScreenshot] = useState(null);
   const searchTimeoutRef = useRef(null);
+
 
   const stripHtmlTags = (text) => {
     if (!text) return '';
@@ -266,7 +267,6 @@ export default function Main({ preferredGenres }) {
     }
   }, [activeIndex, games.length, preferredGenres, loading, currentPage]);
 
-  // Load game details
   useEffect(() => {
     if (!showDetails) return;
 
@@ -278,22 +278,32 @@ export default function Main({ preferredGenres }) {
       setScreenshotIndex(0);
 
       try {
-        const [details, shots, stores] = await Promise.all([
+        const [details, shots, rawStores] = await Promise.all([
           fetchGameDetails(currentGame.id),
           fetchGameScreenshots(currentGame.id),
           fetchIGDBStores(currentGame.name)
         ]);
-        console.log(currentGame)
+
+        const filteredStores = rawStores.filter(link => {
+          const url = link.url.toLowerCase();
+          return (
+            url.includes("steam") ||
+            url.includes("gog") ||
+            url.includes("epicgames") ||
+            url.includes("playstation") ||
+            url.includes("xbox") ||
+            url.includes("nintendo")
+          );
+        });
 
         setGameDetails(details);
         setScreenshots(shots || []);
-        setStores(stores)
-        console.log(stores)
+        setStores(filteredStores);
       } catch (error) {
         console.error("Error loading game details:", error);
         setGameDetails(null);
         setScreenshots([]);
-        setStores([])
+        setStores([]);
       } finally {
         setDetailsLoading(false);
       }
@@ -301,6 +311,7 @@ export default function Main({ preferredGenres }) {
 
     loadGameInfo();
   }, [activeIndex, games, showDetails]);
+
 
   const handleGenreClick = (genre) => {
     engine.recordGenreInterest(genre.slug);
@@ -580,39 +591,59 @@ export default function Main({ preferredGenres }) {
                       <StarRating rating={game.rating} />
 
                       <div className="flex flex-col gap-3 lg:flex-row lg:justify-center lg:items-center lg:bg-[#21212160] lg:backdrop-blur-md lg:border lg:border-white/5 lg:rounded-[50px] lg:p-[8px]">
+                        {gameDetails && (
+                          <div className="mt-4 flex flex-col gap-2">
+                            {/* Primary "Get Now" button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const primary = choosePrimaryStoreLink(storeLinks, isMobileDevice());
+                                if (primary) window.open(primary.url, "_blank", "noopener,noreferrer");
+                              }}
+                              className="group relative w-full lg:w-auto bg-white text-black px-8 py-3 rounded-full font-bold text-sm lg:text-base transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 overflow-hidden"
+                              disabled={storeLinks.length === 0}
+                            >
+                              <span className="relative z-10">Get Now</span>
+                              <svg
+                                className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                              </svg>
+                              <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-0"></div>
+                            </button>
 
-                        <button className="group relative w-full lg:w-auto bg-white text-black px-8 py-3 rounded-full font-bold text-sm lg:text-base transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 overflow-hidden">
-                          <span className="relative z-10">Get Now</span>
-
-                          <svg
-                            className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                          </svg>
-                          <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-0"></div>
-                        </button>
-
-                        {game.stores && game.stores.length > 0 && (
-                          <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2">
-                            {game.stores.map((store) => (
-                              <div key={store.id} className="sm:opacity-70 opacity-100 hover:opacity-100 transition-opacity cursor-pointer">
-                                <Image
-                                  alt={store.name}
-                                  width={28}
-                                  height={28}
-                                  src={"/" + store.name + ".svg"}
-                                  className="filter invert drop-shadow-md"
-                                  onError={(e) => {
-                                    e.currentTarget.src = "/placeholder_icon.svg";
-                                  }}
-                                />
+                            {/* Individual clickable store icons */}
+                            {storeLinks.length > 0 && (
+                              <div className="flex gap-2 lg:gap-[10px] flex-wrap lg:flex-nowrap px-2 mt-2">
+                                {storeLinks.map((store) => (
+                                  <a
+                                    key={store.url || store.name}
+                                    href={store.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={store.name}
+                                    className="sm:opacity-70 opacity-100 hover:opacity-100 transition-opacity cursor-pointer"
+                                  >
+                                    <Image
+                                      alt={store.name}
+                                      width={28}
+                                      height={28}
+                                      src={iconFilenameForStore(store)}
+                                      className="sm:filter sm:invert md:filter md:invert drop-shadow-md"
+                                      onError={(e) => {
+                                        e.currentTarget.src = "/placeholder_icon.svg";
+                                      }}
+                                    />
+                                  </a>
+                                ))}
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
+
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,3 @@
-import setPlatform from "./setPlatform";
-
-
 export async function fetchGames({
   page = 1,
   genres = "",
@@ -186,7 +183,7 @@ export async function fetchGames({
       background_image: g.background_image || "",
       rating: g.rating || 0,
       metacritic: g.metacritic ?? null,
-      stores: setPlatform(g.platforms || []),
+      stores: g.platforms,
       genres: g.genres || [],
       description: g.description_raw || "",
       _score: Number(it.score.toFixed(4)),
@@ -222,8 +219,6 @@ export async function fetchIGDBStores(gameName) {
     }
 
     const data = await res.json();
-    console.log("Frontend: Received IGDB data:", data);
-
     return data;
   } catch (err) {
     console.error("Frontend: Failed to fetch IGDB stores", err);
