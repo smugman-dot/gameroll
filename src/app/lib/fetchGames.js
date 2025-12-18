@@ -178,6 +178,7 @@ export async function fetchGames({
 
   const out = selected.map((it) => {
     const g = it.game;
+
     return {
       id: g.id,
       name: g.name,
@@ -209,6 +210,26 @@ export function markGamesAsSeen(ids = []) {
   }
 }
 
+export async function fetchIGDBStores(gameName) {
+  try {
+    const res = await fetch(`/api/igdb?game=${encodeURIComponent(gameName)}`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      console.error("Frontend: API responded with error", res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    console.log("Frontend: Received IGDB data:", data);
+
+    return data;
+  } catch (err) {
+    console.error("Frontend: Failed to fetch IGDB stores", err);
+    return [];
+  }
+}
 
 export async function fetchGameDetails(gameId) {
   try {

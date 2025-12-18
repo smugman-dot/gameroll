@@ -27,6 +27,9 @@ const GameCard = ({ game, index, onHover, onClick }) => {
         src={game.background_image}
         alt={game.name}
         fill
+        onError={(e) => {
+          e.currentTarget.src = "/placeholder_icon.svg";
+        }}
         sizes="(max-width: 768px) 50vw, 20vw"
         className="object-cover transition-transform duration-700 group-hover:scale-110"
       />
@@ -115,6 +118,9 @@ export default function GenreView({ genre, onClose, onGameSelect }) {
               <Image
                 src={hoveredGame.background_image}
                 alt="bg"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder_icon.svg";
+                }}
                 fill
                 className="object-cover blur-[80px] scale-110"
                 priority

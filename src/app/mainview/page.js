@@ -7,9 +7,10 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchGames, fetchGameDetails, fetchGameScreenshots } from "../lib/fetchGames";
+import { fetchGames, fetchGameDetails, fetchGameScreenshots, fetchIGDBStores } from "../lib/fetchGames";
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
+
 import { getRecommendationEngine } from "../lib/recommendationEngine";
 import { useMemo } from 'react';
 
@@ -17,6 +18,7 @@ import { useMemo } from 'react';
 // fix horrible search engine
 // fix recommendation engine
 // try to prevent game repition in different sessions
+// cache data from IGDB
 
 
 export default function Main({ preferredGenres }) {
@@ -30,6 +32,7 @@ export default function Main({ preferredGenres }) {
   const [showDetails, setShowDetails] = useState(true);
   const [gameDetails, setGameDetails] = useState(null);
   const [screenshots, setScreenshots] = useState([]);
+  const [storeLinks, setStores] = useState([])
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [screenshotIndex, setScreenshotIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -228,6 +231,7 @@ export default function Main({ preferredGenres }) {
     setLastActiveIndex(activeIndex);
     setActiveIndex(newIndex);
   };
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") setShowScreenshotModal(false);
@@ -274,17 +278,22 @@ export default function Main({ preferredGenres }) {
       setScreenshotIndex(0);
 
       try {
-        const [details, shots] = await Promise.all([
+        const [details, shots, stores] = await Promise.all([
           fetchGameDetails(currentGame.id),
-          fetchGameScreenshots(currentGame.id)
+          fetchGameScreenshots(currentGame.id),
+          fetchIGDBStores(currentGame.name)
         ]);
+        console.log(currentGame)
 
         setGameDetails(details);
         setScreenshots(shots || []);
+        setStores(stores)
+        console.log(stores)
       } catch (error) {
         console.error("Error loading game details:", error);
         setGameDetails(null);
         setScreenshots([]);
+        setStores([])
       } finally {
         setDetailsLoading(false);
       }
