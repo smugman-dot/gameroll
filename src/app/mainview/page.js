@@ -18,23 +18,25 @@ import { useMemo } from 'react';
 // fix horrible search engine
 // fix recommendation engine
 // try to prevent game repition in different sessions
-// cache data from IGDB
-
+// fix screenshot flicker when scrolling
 
 export default function Main({ preferredGenres }) {
   const seed = useMemo(() => Date.now(), []);
   const [games, setGames] = useState([]);
+  const [gameDetails, setGameDetails] = useState(null);
+  const [screenshots, setScreenshots] = useState([]);
+  const [storeLinks, setStores] = useState([]);
+  const [selectedGenre, setSelectedGenre] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastActiveIndex, setLastActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [selectedGenre, setSelectedGenre] = useState("");
-  const [showDetails, setShowDetails] = useState(true);
-  const [gameDetails, setGameDetails] = useState(null);
-  const [screenshots, setScreenshots] = useState([]);
-  const [storeLinks, setStores] = useState([])
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
   const [screenshotIndex, setScreenshotIndex] = useState(0);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [swiperInstance, setSwiperInstance] = useState(null);
+  const [activeScreenshot, setActiveScreenshot] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
@@ -44,82 +46,75 @@ export default function Main({ preferredGenres }) {
   const currentGameRef = useRef(null);
   const isFetchingRef = useRef(false);
   const pendingSlideIndexRef = useRef(null);
-  const [swiperInstance, setSwiperInstance] = useState(null);
   const mainSwiperRef = useRef(null);
-  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
-  const [activeScreenshot, setActiveScreenshot] = useState(null);
   const searchTimeoutRef = useRef(null);
-
 
   const stripHtmlTags = (text) => {
     if (!text) return '';
     return text.replace(/<[^>]*>/g, '');
   };
-  const normalize = (s = "") =>
-    s
-      .toString()
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .trim()
-      .replace(/\s+/g, " ");
+  const sessionCache = useRef({});
 
-  const scoreAndFilterResults = (results = [], rawQuery = "") => {
-    const q = normalize(rawQuery);
-    if (!q) return results || [];
+  const normalize = (s = "") => s.toString().toLowerCase().trim();
 
-    const tokens = q.split(" ").filter(Boolean);
-    const scored = (results || []).map((game) => {
-      const name = normalize(game.name || "");
-      let score = 0;
+  const simpleRankResults = (results = [], query = "") => {
+    if (!query) return results;
+    const q = normalize(query);
 
+    return [...results].sort((a, b) => {
+      const nameA = normalize(a.name);
+      const nameB = normalize(b.name);
 
-      if (name === q) score += 120;
-      if (name.startsWith(q)) score += 90;
+      if (nameA === q) return -1;
+      if (nameB === q) return 1;
 
+      if (nameA.startsWith(q) && !nameB.startsWith(q)) return -1;
+      if (nameB.startsWith(q) && !nameA.startsWith(q)) return 1;
 
-      for (const t of tokens) {
-        if (name.includes(` ${t} `)) score += 18;
-        else if (name.includes(t)) score += 8;
-        const nameWords = name.split(" ");
-        if (nameWords.some(w => w.startsWith(t))) score += 6;
-      }
-
-      if (game.rating) score += Math.min(10, Math.round(game.rating));
-
-      return { game, score };
+      return 0;
     });
-
-    const meaningful = scored.filter(s => s.score > 5).sort((a, b) => b.score - a.score);
-
-    if (meaningful.length > 0) {
-      return meaningful.map(s => s.game);
-    }
-
-    if ((results || []).length > 0) {
-      return results.slice(0, 8);
-    }
-
-    return [];
   };
 
   useEffect(() => {
-    if (pendingSlideIndexRef.current !== null && mainSwiperRef.current) {
-      try {
-        mainSwiperRef.current.update?.();
-      } catch (e) {
-      }
-      mainSwiperRef.current.slideTo(pendingSlideIndexRef.current);
-      pendingSlideIndexRef.current = null;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    const q = searchQuery.trim();
+
+    if (q.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
     }
-  }, [games]);
+
+    setIsSearching(true);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await fetchGames({ page: 1, search: q, seed: seed });
+
+        if (normalize(searchQuery) === normalize(q)) {
+          const ranked = simpleRankResults(results || [], q);
+          setSearchResults(ranked.slice(0, 8));
+        }
+      } catch (error) {
+        console.error("Search error:", error);
+        setSearchResults([]);
+      } finally {
+        if (normalize(searchQuery) === normalize(q)) {
+          setIsSearching(false);
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(searchTimeoutRef.current);
+  }, [searchQuery, seed]);
 
   const handleSelectSearchResult = (game) => {
-    const existingIndex = games.findIndex(g => g.id === game.id);
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-      searchTimeoutRef.current = null;
-    }
+    setSearchQuery("");
     setShowSearch(false);
+    setSearchResults([]);
+
+    const existingIndex = games.findIndex(g => g.id === game.id);
 
     if (existingIndex !== -1) {
       if (mainSwiperRef.current) {
@@ -137,170 +132,102 @@ export default function Main({ preferredGenres }) {
         return newGames;
       });
     }
-    setSearchQuery("");
-    setSearchResults([]);
-    setIsSearching(false);
   };
 
+  // 1. Initial Load
   useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-      searchTimeoutRef.current = null;
-    }
+    if (!preferredGenres) return;
 
-    const q = searchQuery.trim();
-
-    if (q.length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      const currentQuery = q;
-      try {
-        const results = await fetchGames({ page: 1, search: currentQuery, seed: seed });
-
-
-        if (normalize(searchQuery) === normalize(currentQuery)) {
-          const filtered = scoreAndFilterResults(results || [], currentQuery);
-
-          setSearchResults(filtered.length ? filtered : (results || []).slice(0, 8));
-        }
-      } catch (error) {
-        console.error("Search error:", error);
-        if (normalize(searchQuery) === normalize(currentQuery)) {
-          setSearchResults([]);
-        }
-      } finally {
-        if (normalize(searchQuery) === normalize(currentQuery)) {
-          setIsSearching(false);
-        }
-        if (searchTimeoutRef.current) {
-          clearTimeout(searchTimeoutRef.current);
-          searchTimeoutRef.current = null;
-        }
-      }
-    }, 350);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = null;
-      }
-    };
-  }, [searchQuery]);
-
-  // 1. Initial fetch
-  useEffect(() => {
     const fetchInitial = async () => {
       setLoading(true);
       try {
         const initialGames = await fetchGames({ page: 1, genres: preferredGenres, seed: seed });
-        setGames(initialGames);
+        setGames(initialGames || []);
       } catch (error) {
         console.error("Error fetching games:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-
-    if (preferredGenres) {
-      fetchInitial();
-    }
-  }, [preferredGenres]);
-
-  // 2. Track view time
-  const handleSlideChange = (swiper) => {
-    const newIndex = swiper.activeIndex;
-    const nextGame = games[newIndex];
-    if (!nextGame) return;
-
-    if (currentGameRef.current) {
-      const viewDuration = (Date.now() - viewStartTime.current) / 1000;
-      if (viewDuration < 2) {
-        engine.recordSkip(currentGameRef.current);
-      } else {
-        engine.recordView(currentGameRef.current, viewDuration);
-      }
-    }
-
-    viewStartTime.current = Date.now();
-    currentGameRef.current = nextGame;
-
-    setLastActiveIndex(activeIndex);
-    setActiveIndex(newIndex);
-  };
+    fetchInitial();
+  }, [preferredGenres, seed]);
 
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") setShowScreenshotModal(false);
-    };
-    if (showScreenshotModal) window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showScreenshotModal]);
-
-  useEffect(() => {
-    const shouldFetch = activeIndex >= games.length - 3 && !loading && !isFetchingRef.current;
+    const shouldFetch = activeIndex >= games.length - 3 && !loading && !isFetchingRef.current && games.length > 0;
 
     if (shouldFetch) {
       isFetchingRef.current = true;
       setLoading(true);
-
       const nextPage = currentPage + 1;
 
       fetchGames({ page: nextPage, genres: preferredGenres, seed: seed })
         .then((newGames) => {
-          if (newGames && newGames.length > 0) {
+          if (newGames?.length > 0) {
             setGames(prev => [...prev, ...newGames]);
             setCurrentPage(nextPage);
           }
-        })
-        .catch(error => {
-          console.error('Error fetching:', error);
         })
         .finally(() => {
           setLoading(false);
           isFetchingRef.current = false;
         });
     }
-  }, [activeIndex, games.length, preferredGenres, loading, currentPage]);
+  }, [activeIndex, games.length, preferredGenres, currentPage, seed]);
 
   useEffect(() => {
-    if (!showDetails) return;
+    if (pendingSlideIndexRef.current !== null && mainSwiperRef.current) {
+      mainSwiperRef.current.update?.();
+      mainSwiperRef.current.slideTo(pendingSlideIndexRef.current);
+      pendingSlideIndexRef.current = null;
+    }
+  }, [games]);
+
+
+  useEffect(() => {
+    if (!showDetails || games.length === 0 || !games[activeIndex]) return;
+
+    const currentGame = games[activeIndex];
+    const gameId = currentGame.id;
+
+    if (sessionCache.current[gameId]) {
+      const cached = sessionCache.current[gameId];
+      setGameDetails(cached.details);
+      setScreenshots(cached.shots);
+      setStores(cached.stores);
+      setDetailsLoading(false);
+      setScreenshotIndex(0);
+      return;
+    }
 
     const loadGameInfo = async () => {
-      if (games.length === 0 || !games[activeIndex]) return;
-
-      const currentGame = games[activeIndex];
       setDetailsLoading(true);
       setScreenshotIndex(0);
 
       try {
         const [details, shots, rawStores] = await Promise.all([
-          fetchGameDetails(currentGame.id),
-          fetchGameScreenshots(currentGame.id),
+          fetchGameDetails(gameId),
+          fetchGameScreenshots(gameId),
           fetchIGDBStores(currentGame.name)
         ]);
 
-        const filteredStores = rawStores.filter(link => {
+        const filteredStores = (rawStores || []).filter(link => {
+          if (!link.url) return false;
           const url = link.url.toLowerCase();
-          return (
-            url.includes("steam") ||
-            url.includes("gog") ||
-            url.includes("epicgames") ||
-            url.includes("playstation") ||
-            url.includes("xbox") ||
-            url.includes("nintendo")
-          );
+          return ['steam', 'gog', 'epic', 'playstation', 'xbox', 'nintendo'].some(s => url.includes(s));
         });
+
+        sessionCache.current[gameId] = {
+          details: details,
+          shots: shots || [],
+          stores: filteredStores
+        };
 
         setGameDetails(details);
         setScreenshots(shots || []);
         setStores(filteredStores);
+
       } catch (error) {
-        console.error("Error loading game details:", error);
+        console.error("Error loading details:", error);
         setGameDetails(null);
         setScreenshots([]);
         setStores([]);
@@ -312,16 +239,49 @@ export default function Main({ preferredGenres }) {
     loadGameInfo();
   }, [activeIndex, games, showDetails]);
 
-
   const handleGenreClick = (genre) => {
     engine.recordGenreInterest(genre.slug);
     setSelectedGenre(genre.slug);
   };
-
   const handleCloseGenreView = () => {
     setSelectedGenre("");
   };
 
+  const handleSlideChange = (swiper) => {
+    const newIndex = swiper.activeIndex;
+    const nextGame = games[newIndex];
+
+    if (currentGameRef.current && nextGame && currentGameRef.current.id !== nextGame.id) {
+      const viewDuration = (Date.now() - viewStartTime.current) / 1000;
+      if (viewDuration < 2) {
+        engine.recordSkip(currentGameRef.current);
+      } else {
+        engine.recordView(currentGameRef.current, viewDuration);
+      }
+    }
+
+    viewStartTime.current = Date.now();
+    currentGameRef.current = nextGame;
+
+
+    if (nextGame) {
+      const cachedData = sessionCache.current[nextGame.id];
+
+      if (cachedData) {
+        setGameDetails(cachedData.details);
+        setScreenshots(cachedData.shots);
+        setStores(cachedData.stores);
+        setDetailsLoading(false);
+      } else {
+        setGameDetails(null);
+        setScreenshots([]);
+        setStores([]);
+        setDetailsLoading(true);
+      }
+    }
+    setLastActiveIndex(activeIndex);
+    setActiveIndex(newIndex);
+  };
 
   const getH1TranslateY = (currentIndex) => {
     if (activeIndex === currentIndex) return "translate-y-0 opacity-100";
