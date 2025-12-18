@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Main from "./mainview/page";
-import DebugPanel from "./components/DebugPanel";
 import "./globals.css";
 
 export default function Home() {
