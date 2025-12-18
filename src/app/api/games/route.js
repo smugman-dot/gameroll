@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { Redis } from '@upstash/redis';
+import { Redis } from "@upstash/redis";
 
 const CACHE_PREFIX = "rawg:";
-const normalizeKey = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+const normalizeKey = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const redis = Redis.fromEnv();
 
 export async function GET(req) {
@@ -29,7 +29,7 @@ export async function GET(req) {
     let queryHash = Object.entries(queryParams)
       .filter(([, value]) => value)
       .map(([key, value]) => `${key}-${normalizeKey(String(value))}`)
-      .join(':');
+      .join(":");
 
     url += `?key=${process.env.API_KEY}&page=${page}&page_size=20`;
 

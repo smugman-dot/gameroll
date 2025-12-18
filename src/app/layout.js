@@ -2,8 +2,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Game Scroller",
-  description: "Discover random games by genre",
+  title: "Gameroll",
+  description: "Discover your next favorite game!",
 };
 
 export default function RootLayout({ children }) {

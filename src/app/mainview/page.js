@@ -7,14 +7,23 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchGames, fetchGameDetails, fetchGameScreenshots, fetchIGDBStores } from "../lib/fetchGames";
-import 'swiper/css/pagination';
-import 'swiper/css/navigation';
-import { choosePrimaryStoreLink, iconFilenameForStore, isMobileDevice } from '../lib/PlatformHelpers.js';
+import {
+  fetchGames,
+  fetchGameDetails,
+  fetchGameScreenshots,
+  fetchIGDBStores,
+} from "../lib/fetchGames";
+import "swiper/css/pagination";
+import "swiper/css/navigation";
+import {
+  choosePrimaryStoreLink,
+  iconFilenameForStore,
+  isMobileDevice,
+} from "../lib/PlatformHelpers.js";
 import { getRecommendationEngine } from "../lib/recommendationEngine";
-import { useMemo } from 'react';
+import { useMemo } from "react";
 
-// TODO: 
+// TODO:
 // fix horrible search engine
 // fix recommendation engine
 // try to prevent game repition in different sessions
@@ -50,8 +59,8 @@ export default function Main({ preferredGenres }) {
   const searchTimeoutRef = useRef(null);
 
   const stripHtmlTags = (text) => {
-    if (!text) return '';
-    return text.replace(/<[^>]*>/g, '');
+    if (!text) return "";
+    return text.replace(/<[^>]*>/g, "");
   };
   const sessionCache = useRef({});
 
@@ -114,7 +123,7 @@ export default function Main({ preferredGenres }) {
     setShowSearch(false);
     setSearchResults([]);
 
-    const existingIndex = games.findIndex(g => g.id === game.id);
+    const existingIndex = games.findIndex((g) => g.id === game.id);
 
     if (existingIndex !== -1) {
       if (mainSwiperRef.current) {
@@ -126,7 +135,7 @@ export default function Main({ preferredGenres }) {
       const insertIndex = activeIndex + 1;
       pendingSlideIndexRef.current = insertIndex;
 
-      setGames(prev => {
+      setGames((prev) => {
         const newGames = [...prev];
         newGames.splice(insertIndex, 0, game);
         return newGames;
@@ -141,7 +150,11 @@ export default function Main({ preferredGenres }) {
     const fetchInitial = async () => {
       setLoading(true);
       try {
-        const initialGames = await fetchGames({ page: 1, genres: preferredGenres, seed: seed });
+        const initialGames = await fetchGames({
+          page: 1,
+          genres: preferredGenres,
+          seed: seed,
+        });
         setGames(initialGames || []);
       } catch (error) {
         console.error("Error fetching games:", error);
@@ -153,7 +166,11 @@ export default function Main({ preferredGenres }) {
   }, [preferredGenres, seed]);
 
   useEffect(() => {
-    const shouldFetch = activeIndex >= games.length - 3 && !loading && !isFetchingRef.current && games.length > 0;
+    const shouldFetch =
+      activeIndex >= games.length - 3 &&
+      !loading &&
+      !isFetchingRef.current &&
+      games.length > 0;
 
     if (shouldFetch) {
       isFetchingRef.current = true;
@@ -163,7 +180,7 @@ export default function Main({ preferredGenres }) {
       fetchGames({ page: nextPage, genres: preferredGenres, seed: seed })
         .then((newGames) => {
           if (newGames?.length > 0) {
-            setGames(prev => [...prev, ...newGames]);
+            setGames((prev) => [...prev, ...newGames]);
             setCurrentPage(nextPage);
           }
         })
@@ -181,7 +198,6 @@ export default function Main({ preferredGenres }) {
       pendingSlideIndexRef.current = null;
     }
   }, [games]);
-
 
   useEffect(() => {
     if (!showDetails || games.length === 0 || !games[activeIndex]) return;
@@ -207,25 +223,31 @@ export default function Main({ preferredGenres }) {
         const [details, shots, rawStores] = await Promise.all([
           fetchGameDetails(gameId),
           fetchGameScreenshots(gameId),
-          fetchIGDBStores(currentGame.name)
+          fetchIGDBStores(currentGame.name),
         ]);
 
-        const filteredStores = (rawStores || []).filter(link => {
+        const filteredStores = (rawStores || []).filter((link) => {
           if (!link.url) return false;
           const url = link.url.toLowerCase();
-          return ['steam', 'gog', 'epic', 'playstation', 'xbox', 'nintendo'].some(s => url.includes(s));
+          return [
+            "steam",
+            "gog",
+            "epic",
+            "playstation",
+            "xbox",
+            "nintendo",
+          ].some((s) => url.includes(s));
         });
 
         sessionCache.current[gameId] = {
           details: details,
           shots: shots || [],
-          stores: filteredStores
+          stores: filteredStores,
         };
 
         setGameDetails(details);
         setScreenshots(shots || []);
         setStores(filteredStores);
-
       } catch (error) {
         console.error("Error loading details:", error);
         setGameDetails(null);
@@ -251,7 +273,11 @@ export default function Main({ preferredGenres }) {
     const newIndex = swiper.activeIndex;
     const nextGame = games[newIndex];
 
-    if (currentGameRef.current && nextGame && currentGameRef.current.id !== nextGame.id) {
+    if (
+      currentGameRef.current &&
+      nextGame &&
+      currentGameRef.current.id !== nextGame.id
+    ) {
       const viewDuration = (Date.now() - viewStartTime.current) / 1000;
       if (viewDuration < 2) {
         engine.recordSkip(currentGameRef.current);
@@ -262,7 +288,6 @@ export default function Main({ preferredGenres }) {
 
     viewStartTime.current = Date.now();
     currentGameRef.current = nextGame;
-
 
     if (nextGame) {
       const cachedData = sessionCache.current[nextGame.id];
@@ -347,7 +372,16 @@ export default function Main({ preferredGenres }) {
         whileTap={{ scale: 0.95 }}
         className="top-4 left-4 fixed sm:top-9 sm:left-7 z-40 bg-white/10 backdrop-blur-md border border-white/20 text-white p-3 rounded-full hover:bg-white/20 transition-all shadow-lg"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
@@ -372,7 +406,16 @@ export default function Main({ preferredGenres }) {
             >
               {/* Search Input */}
               <div className="p-4 border-b border-white/10 flex items-center gap-3">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <circle cx="11" cy="11" r="8"></circle>
                   <path d="m21 21-4.35-4.35"></path>
                 </svg>
@@ -388,7 +431,14 @@ export default function Main({ preferredGenres }) {
                   onClick={closeSearchSafely}
                   className="text-gray-400 hover:text-white transition-colors"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                   </svg>
@@ -406,7 +456,9 @@ export default function Main({ preferredGenres }) {
                     {searchResults.map((game) => (
                       <motion.div
                         key={game.id}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+                        whileHover={{
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                        }}
                         onClick={() => handleSelectSearchResult(game)}
                         className="p-4 cursor-pointer flex items-center gap-4 transition-colors"
                       >
@@ -421,18 +473,32 @@ export default function Main({ preferredGenres }) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-white font-semibold truncate">{game.name}</h3>
+                          <h3 className="text-white font-semibold truncate">
+                            {game.name}
+                          </h3>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-gray-400">{game.released?.split('-')[0]}</span>
+                            <span className="text-xs text-gray-400">
+                              {game.released?.split("-")[0]}
+                            </span>
                             {game.rating && (
                               <>
                                 <span className="text-xs text-gray-600">•</span>
-                                <span className="text-xs text-yellow-400">★ {game.rating}</span>
+                                <span className="text-xs text-yellow-400">
+                                  ★ {game.rating}
+                                </span>
                               </>
                             )}
                           </div>
                         </div>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          className="text-gray-600"
+                        >
                           <polyline points="9 18 15 12 9 6"></polyline>
                         </svg>
                       </motion.div>
@@ -469,7 +535,9 @@ export default function Main({ preferredGenres }) {
         mousewheel={true}
         modules={[Mousewheel]}
         onSlideChange={handleSlideChange}
-        onSwiper={(s) => { mainSwiperRef.current = s; }}
+        onSwiper={(s) => {
+          mainSwiperRef.current = s;
+        }}
         className="h-screen w-screen"
         allowTouchMove={!selectedGenre && !showSearch}
       >
@@ -497,7 +565,7 @@ export default function Main({ preferredGenres }) {
                       className={`transition-transform duration-700 ${activeIndex === index ? "scale-105" : "scale-100"} object-cover object-top`}
                       priority={index < 3}
                       onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   ) : (
@@ -513,7 +581,6 @@ export default function Main({ preferredGenres }) {
                 {/* Content Overlay */}
                 <div className="absolute inset-0 flex flex-col lg:flex-row justify-center items-center">
                   <div className="p-5 sm:p-6 lg:p-0 absolute lg:inset-y-[35%] lg:inset-x-[3%] inset-y-[12%] flex flex-col gap-2 sm:gap-4 lg:gap-[10px] items-start h-auto w-full justify-start overflow-visible lg:overflow-visible max-h-[35vh] lg:max-h-none pb-0 lg:pb-0 z-10 lg:pointer-events-none">
-
                     {/* Genre Pills */}
                     {game.genres && game.genres.length > 0 && (
                       <div className="flex flex-wrap lg:flex-row items-center gap-2 lg:gap-[5px] text-white text-xs sm:text-sm lg:text-base pointer-events-auto">
@@ -557,8 +624,16 @@ export default function Main({ preferredGenres }) {
                             <button
                               type="button"
                               onClick={() => {
-                                const primary = choosePrimaryStoreLink(storeLinks, isMobileDevice());
-                                if (primary) window.open(primary.url, "_blank", "noopener,noreferrer");
+                                const primary = choosePrimaryStoreLink(
+                                  storeLinks,
+                                  isMobileDevice(),
+                                );
+                                if (primary)
+                                  window.open(
+                                    primary.url,
+                                    "_blank",
+                                    "noopener,noreferrer",
+                                  );
                               }}
                               className="group relative w-full lg:w-auto bg-white text-black px-8 py-3 rounded-full font-bold text-sm lg:text-base transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 overflow-hidden"
                               disabled={storeLinks.length === 0}
@@ -570,7 +645,12 @@ export default function Main({ preferredGenres }) {
                                 stroke="currentColor"
                                 viewBox="0 0 24 24"
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M14 5l7 7m0 0l-7 7m7-7H3"
+                                />
                               </svg>
                               <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-0"></div>
                             </button>
@@ -594,7 +674,8 @@ export default function Main({ preferredGenres }) {
                                       src={iconFilenameForStore(store)}
                                       className="sm:filter sm:invert md:filter md:invert drop-shadow-md"
                                       onError={(e) => {
-                                        e.currentTarget.src = "/placeholder_icon.svg";
+                                        e.currentTarget.src =
+                                          "/placeholder_icon.svg";
                                       }}
                                     />
                                   </a>
@@ -604,7 +685,6 @@ export default function Main({ preferredGenres }) {
                           </div>
                         )}
                       </div>
-
                     </div>
                   </div>
                   {/* Right Side Details Panel */}
@@ -613,7 +693,6 @@ export default function Main({ preferredGenres }) {
                     transition={{ duration: 0.5, ease: "easeInOut" }}
                     className="hidden lg:block absolute right-0 top-0 h-full w-96 bg-gradient-to-l from-black/80 via-black/70 to-transparent backdrop-blur-md border-l border-white/10 overflow-hidden"
                   >
-
                     {/* Panel Content */}
                     <div className="h-full overflow-y-auto p-4 sm:p-6 scrollbar-hide">
                       {detailsLoading ? (
@@ -625,13 +704,17 @@ export default function Main({ preferredGenres }) {
                         </div>
                       ) : gameDetails ? (
                         <div className="space-y-6">
-
                           {/* Description */}
                           {gameDetails.description && (
                             <div>
-                              <h3 className="text-white font-semibold mb-2 text-xs sm:text-sm uppercase tracking-wider">About</h3>
+                              <h3 className="text-white font-semibold mb-2 text-xs sm:text-sm uppercase tracking-wider">
+                                About
+                              </h3>
                               <p className="text-white/70 text-xs sm:text-sm leading-relaxed line-clamp-4">
-                                {stripHtmlTags(gameDetails.description_raw || gameDetails.description)}
+                                {stripHtmlTags(
+                                  gameDetails.description_raw ||
+                                    gameDetails.description,
+                                )}
                               </p>
                             </div>
                           )}
@@ -640,27 +723,41 @@ export default function Main({ preferredGenres }) {
                           {gameDetails.metacritic && (
                             <div className="bg-yellow-600/20 border border-yellow-600/40 rounded-lg p-2 sm:p-3">
                               <div className="flex items-center justify-between">
-                                <span className="text-white/70 text-xs sm:text-sm">Metacritic</span>
-                                <span className="text-yellow-400 font-bold text-base sm:text-lg">{gameDetails.metacritic}</span>
+                                <span className="text-white/70 text-xs sm:text-sm">
+                                  Metacritic
+                                </span>
+                                <span className="text-yellow-400 font-bold text-base sm:text-lg">
+                                  {gameDetails.metacritic}
+                                </span>
                               </div>
                             </div>
                           )}
 
                           {/* Developers */}
-                          {gameDetails.developers && gameDetails.developers.length > 0 && (
-                            <div>
-                              <h3 className="text-white font-semibold mb-1 sm:mb-2 text-xs sm:text-sm uppercase tracking-wider">Developer</h3>
-                              <p className="text-white/70 text-xs sm:text-sm">{gameDetails.developers[0]?.name || 'Unknown'}</p>
-                            </div>
-                          )}
+                          {gameDetails.developers &&
+                            gameDetails.developers.length > 0 && (
+                              <div>
+                                <h3 className="text-white font-semibold mb-1 sm:mb-2 text-xs sm:text-sm uppercase tracking-wider">
+                                  Developer
+                                </h3>
+                                <p className="text-white/70 text-xs sm:text-sm">
+                                  {gameDetails.developers[0]?.name || "Unknown"}
+                                </p>
+                              </div>
+                            )}
 
                           {/* Publishers */}
-                          {gameDetails.publishers && gameDetails.publishers.length > 0 && (
-                            <div>
-                              <h3 className="text-white font-semibold mb-1 sm:mb-2 text-xs sm:text-sm uppercase tracking-wider">Publisher</h3>
-                              <p className="text-white/70 text-xs sm:text-sm">{gameDetails.publishers[0]?.name || 'Unknown'}</p>
-                            </div>
-                          )}
+                          {gameDetails.publishers &&
+                            gameDetails.publishers.length > 0 && (
+                              <div>
+                                <h3 className="text-white font-semibold mb-1 sm:mb-2 text-xs sm:text-sm uppercase tracking-wider">
+                                  Publisher
+                                </h3>
+                                <p className="text-white/70 text-xs sm:text-sm">
+                                  {gameDetails.publishers[0]?.name || "Unknown"}
+                                </p>
+                              </div>
+                            )}
 
                           {/* Website */}
                           {gameDetails.website && (
@@ -677,14 +774,18 @@ export default function Main({ preferredGenres }) {
                           {/* Screenshots Carousel */}
                           {screenshots.length > 0 && (
                             <div>
-                              <h3 className="text-white font-semibold mb-2 sm:mb-3 text-xs sm:text-sm uppercase tracking-wider">Screenshots</h3>
+                              <h3 className="text-white font-semibold mb-2 sm:mb-3 text-xs sm:text-sm uppercase tracking-wider">
+                                Screenshots
+                              </h3>
 
                               <div className="relative">
                                 <Swiper
                                   onSwiper={(swiper) => {
                                     setSwiperInstance(swiper);
                                   }}
-                                  onSlideChange={(swiper) => setScreenshotIndex(swiper.activeIndex)}
+                                  onSlideChange={(swiper) =>
+                                    setScreenshotIndex(swiper.activeIndex)
+                                  }
                                   spaceBetween={12}
                                   slidesPerView={1.15}
                                   centeredSlides={true}
@@ -692,10 +793,13 @@ export default function Main({ preferredGenres }) {
                                   className="w-full"
                                   allowTouchMove={true}
                                   grabCursor={true}
-                                  style={{ padding: '0' }}
+                                  style={{ padding: "0" }}
                                 >
                                   {screenshots.map((screenshot, idx) => (
-                                    <SwiperSlide key={idx} className="flex justify-center">
+                                    <SwiperSlide
+                                      key={idx}
+                                      className="flex justify-center"
+                                    >
                                       <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-gray-900 h-40 sm:h-48 md:h-56 lg:aspect-video lg:h-auto">
                                         <Image
                                           src={screenshot.image}
@@ -703,7 +807,9 @@ export default function Main({ preferredGenres }) {
                                           fill
                                           className="object-cover cursor-zoom-in"
                                           onClick={() => {
-                                            setActiveScreenshot(screenshot.image);
+                                            setActiveScreenshot(
+                                              screenshot.image,
+                                            );
                                             setShowScreenshotModal(true);
                                           }}
                                         />
@@ -745,9 +851,14 @@ export default function Main({ preferredGenres }) {
                         {/* Description */}
                         {gameDetails.description && (
                           <div>
-                            <h3 className="text-white font-semibold mb-2 text-xs uppercase tracking-wider">About</h3>
+                            <h3 className="text-white font-semibold mb-2 text-xs uppercase tracking-wider">
+                              About
+                            </h3>
                             <p className="text-white/70 text-xs leading-relaxed line-clamp-4">
-                              {stripHtmlTags(gameDetails.description_raw || gameDetails.description)}
+                              {stripHtmlTags(
+                                gameDetails.description_raw ||
+                                  gameDetails.description,
+                              )}
                             </p>
                           </div>
                         )}
@@ -756,27 +867,41 @@ export default function Main({ preferredGenres }) {
                         {gameDetails.metacritic && (
                           <div className="bg-yellow-600/20 border border-yellow-600/40 rounded-lg p-2 hidden sm:block">
                             <div className="flex items-center justify-between">
-                              <span className="text-white/70 text-xs">Metacritic</span>
-                              <span className="text-yellow-400 font-bold text-sm">{gameDetails.metacritic}</span>
+                              <span className="text-white/70 text-xs">
+                                Metacritic
+                              </span>
+                              <span className="text-yellow-400 font-bold text-sm">
+                                {gameDetails.metacritic}
+                              </span>
                             </div>
                           </div>
                         )}
 
                         {/* Developers */}
-                        {gameDetails.developers && gameDetails.developers.length > 0 && (
-                          <div className="hidden sm:block">
-                            <h3 className="text-white font-semibold mb-1 text-xs uppercase tracking-wider">Developer</h3>
-                            <p className="text-white/70 text-xs">{gameDetails.developers[0]?.name || 'Unknown'}</p>
-                          </div>
-                        )}
+                        {gameDetails.developers &&
+                          gameDetails.developers.length > 0 && (
+                            <div className="hidden sm:block">
+                              <h3 className="text-white font-semibold mb-1 text-xs uppercase tracking-wider">
+                                Developer
+                              </h3>
+                              <p className="text-white/70 text-xs">
+                                {gameDetails.developers[0]?.name || "Unknown"}
+                              </p>
+                            </div>
+                          )}
 
                         {/* Publishers */}
-                        {gameDetails.publishers && gameDetails.publishers.length > 0 && (
-                          <div className="hidden sm:block">
-                            <h3 className="text-white font-semibold mb-1 text-xs uppercase tracking-wider">Publisher</h3>
-                            <p className="text-white/70 text-xs">{gameDetails.publishers[0]?.name || 'Unknown'}</p>
-                          </div>
-                        )}
+                        {gameDetails.publishers &&
+                          gameDetails.publishers.length > 0 && (
+                            <div className="hidden sm:block">
+                              <h3 className="text-white font-semibold mb-1 text-xs uppercase tracking-wider">
+                                Publisher
+                              </h3>
+                              <p className="text-white/70 text-xs">
+                                {gameDetails.publishers[0]?.name || "Unknown"}
+                              </p>
+                            </div>
+                          )}
 
                         {/* Website */}
                         {gameDetails.website && (
@@ -793,7 +918,9 @@ export default function Main({ preferredGenres }) {
                         {/* Screenshots Carousel */}
                         {screenshots.length > 0 && (
                           <div>
-                            <h3 className="text-white font-semibold mb-2 text-xs uppercase tracking-wider">Screenshots</h3>
+                            <h3 className="text-white font-semibold mb-2 text-xs uppercase tracking-wider">
+                              Screenshots
+                            </h3>
 
                             {/* Swiper Container */}
                             <div className="relative">
@@ -801,7 +928,9 @@ export default function Main({ preferredGenres }) {
                                 onSwiper={(swiper) => {
                                   setSwiperInstance(swiper);
                                 }}
-                                onSlideChange={(swiper) => setScreenshotIndex(swiper.activeIndex)}
+                                onSlideChange={(swiper) =>
+                                  setScreenshotIndex(swiper.activeIndex)
+                                }
                                 spaceBetween={12}
                                 slidesPerView={1.15}
                                 centeredSlides={true}
@@ -809,10 +938,13 @@ export default function Main({ preferredGenres }) {
                                 className="w-full"
                                 allowTouchMove={true}
                                 grabCursor={true}
-                                style={{ padding: '0' }}
+                                style={{ padding: "0" }}
                               >
                                 {screenshots.map((screenshot, idx) => (
-                                  <SwiperSlide key={idx} className="flex justify-center">
+                                  <SwiperSlide
+                                    key={idx}
+                                    className="flex justify-center"
+                                  >
                                     <div className="relative w-full rounded-2xl overflow-hidden border border-white/10 shadow-lg bg-gray-900 h-40 sm:h-48 md:h-56 lg:aspect-video lg:h-auto">
                                       <Image
                                         src={screenshot.image}
@@ -880,7 +1012,14 @@ export default function Main({ preferredGenres }) {
                 onClick={() => setShowScreenshotModal(false)}
                 className="absolute top-4 right-4 bg-black/60 text-white rounded-full p-2 hover:bg-black/80 transition"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -889,7 +1028,6 @@ export default function Main({ preferredGenres }) {
           </motion.div>
         )}
       </AnimatePresence>
-
 
       {loading && (
         <div className="absolute bottom-4 sm:bottom-6 lg:bottom-10 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 sm:px-4 py-2 rounded-full backdrop-blur-sm text-xs sm:text-sm">

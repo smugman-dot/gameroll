@@ -10,7 +10,7 @@ const StarRating = ({ rating }) => {
     stars.push(
       <span key={`full-${i}`} className="text-[yellow]">
         ★
-      </span>
+      </span>,
     );
   }
 
@@ -22,7 +22,7 @@ const StarRating = ({ rating }) => {
         className="inline-block relative text-[gray] before:content-['★'] before:text-[yellow] before:absolute before:top-0 before:left-0 before:w-1/2 before:overflow-hidden"
       >
         ★
-      </span>
+      </span>,
     );
   }
 
@@ -31,7 +31,7 @@ const StarRating = ({ rating }) => {
     stars.push(
       <span key={`empty-${i}`} className="text-[gray]">
         ★
-      </span>
+      </span>,
     );
   }
 

@@ -12,7 +12,7 @@ export async function fetchGames({
   function mulberry32(seedNum) {
     let t = seedNum >>> 0;
     return function () {
-      t += 0x6D2B79F5;
+      t += 0x6d2b79f5;
       let r = Math.imul(t ^ (t >>> 15), 1 | t);
       r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
       return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
@@ -20,7 +20,7 @@ export async function fetchGames({
   }
 
   const seededRandForId = (seedVal, id) => {
-    const combined = (String(seedVal) + "-" + String(id));
+    const combined = String(seedVal) + "-" + String(id);
     const h = hashString(combined);
     return mulberry32(h)();
   };
@@ -45,10 +45,9 @@ export async function fetchGames({
   }
 
   const fetchPromises = Array.from(pages).map((p) => {
-    const url =
-      `/api/games?page=${p}&page_size=${pageSize}&genres=${encodeURIComponent(
-        genres
-      )}&search=${encodeURIComponent(search)}&seed=${encodeURIComponent(seed)}`;
+    const url = `/api/games?page=${p}&page_size=${pageSize}&genres=${encodeURIComponent(
+      genres,
+    )}&search=${encodeURIComponent(search)}&seed=${encodeURIComponent(seed)}`;
     return fetch(url, { cache: "no-store" }).then(async (r) => {
       if (!r.ok) {
         const text = await r.text().catch(() => "");
@@ -100,13 +99,13 @@ export async function fetchGames({
       const relevance =
         search && typeof g.name === "string" && search.length
           ? (() => {
-            const q = search.toLowerCase();
-            const name = g.name.toLowerCase();
-            if (name === q) return 1;
-            if (name.startsWith(q)) return 0.9;
-            if (name.includes(q)) return 0.7;
-            return 0;
-          })()
+              const q = search.toLowerCase();
+              const name = g.name.toLowerCase();
+              if (name === q) return 1;
+              if (name.startsWith(q)) return 0.9;
+              if (name.includes(q)) return 0.7;
+              return 0;
+            })()
           : 0;
 
       const rand = seededRandForId(seed, g.id);
@@ -203,8 +202,7 @@ export function markGamesAsSeen(ids = []) {
       map[id] = (map[id] || 0) + 1;
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 export async function fetchIGDBStores(gameName) {
@@ -238,7 +236,9 @@ export async function fetchGameDetails(gameId) {
 }
 export async function fetchGameScreenshots(gameId) {
   try {
-    const res = await fetch(`/api/games?id=${gameId}&screenshots=true`, { cache: "no-store" });
+    const res = await fetch(`/api/games?id=${gameId}&screenshots=true`, {
+      cache: "no-store",
+    });
     if (!res.ok) throw new Error("Failed to fetch screenshots");
     const data = await res.json();
     return data.results || [];

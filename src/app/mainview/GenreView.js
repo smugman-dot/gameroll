@@ -4,9 +4,16 @@ import { useEffect, useState, useRef } from "react";
 import { fetchGames } from "../lib/fetchGames";
 
 const RatingBadge = ({ rating }) => {
-  const color = rating >= 90 ? "bg-green-500" : rating >= 75 ? "bg-yellow-500" : "bg-gray-500";
+  const color =
+    rating >= 90
+      ? "bg-green-500"
+      : rating >= 75
+        ? "bg-yellow-500"
+        : "bg-gray-500";
   return (
-    <div className={`px-2 py-0.5 rounded-md ${color} text-black font-bold text-xs flex items-center gap-1`}>
+    <div
+      className={`px-2 py-0.5 rounded-md ${color} text-black font-bold text-xs flex items-center gap-1`}
+    >
       <span>{rating || "N/A"}</span>
     </div>
   );
@@ -48,8 +55,12 @@ const GameCard = ({ game, index, onHover, onClick }) => {
 
           <div className="h-0 overflow-hidden group-hover:h-auto transition-all duration-300 opacity-0 group-hover:opacity-100">
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/20">
-              <span className="text-xs text-gray-300">{game.released?.split("-")[0]}</span>
-              <span className="text-xs font-bold text-white uppercase tracking-wider">Jump to Game →</span>
+              <span className="text-xs text-gray-300">
+                {game.released?.split("-")[0]}
+              </span>
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                Jump to Game →
+              </span>
             </div>
           </div>
         </div>
@@ -70,7 +81,11 @@ export default function GenreView({ genre, onClose, onGameSelect }) {
   useEffect(() => {
     const loadInitial = async () => {
       setLoading(true);
-      const firstPage = await fetchGames({ page: 1, genres: genre, seed: randomSeed });
+      const firstPage = await fetchGames({
+        page: 1,
+        genres: genre,
+        seed: randomSeed,
+      });
       setGames(firstPage);
       if (firstPage.length > 0) setHoveredGame(firstPage[0]);
       setCurrentPage(1);
@@ -80,12 +95,17 @@ export default function GenreView({ genre, onClose, onGameSelect }) {
   }, [genre, randomSeed]);
 
   const handleScroll = async (e) => {
-    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 200;
+    const bottom =
+      e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 200;
     if (bottom && !loading) {
       setLoading(true);
       const nextPage = currentPage + 1;
-      const moreGames = await fetchGames({ page: nextPage, genres: genre, seed: randomSeed });
-      setGames(prev => [...prev, ...moreGames]);
+      const moreGames = await fetchGames({
+        page: nextPage,
+        genres: genre,
+        seed: randomSeed,
+      });
+      setGames((prev) => [...prev, ...moreGames]);
       setCurrentPage(nextPage);
       setLoading(false);
     }
@@ -129,7 +149,10 @@ export default function GenreView({ genre, onClose, onGameSelect }) {
             </motion.div>
           )}
         </AnimatePresence>
-        <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: 'url("/noise.png")' }}></div>
+        <div
+          className="absolute inset-0 opacity-[0.05]"
+          style={{ backgroundImage: 'url("/noise.png")' }}
+        ></div>
       </div>
 
       <div className="relative z-20 px-6 py-6 md:px-12 md:py-8 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent sticky top-0">
@@ -137,14 +160,27 @@ export default function GenreView({ genre, onClose, onGameSelect }) {
           <h2 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500 uppercase tracking-tighter">
             {genre}
           </h2>
-          <p className="text-white/60 text-sm md:text-base mt-1">Click any game to jump to it in your feed</p>
+          <p className="text-white/60 text-sm md:text-base mt-1">
+            Click any game to jump to it in your feed
+          </p>
         </div>
         <button
           onClick={onClose}
           className="group flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/10 hover:bg-white text-white hover:text-black transition-all duration-300 backdrop-blur-md border border-white/10"
         >
           <span className="text-sm font-bold">Close</span>
-          <svg className="w-5 h-5 transition-transform group-hover:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <svg
+            className="w-5 h-5 transition-transform group-hover:rotate-90"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
       </div>
 
