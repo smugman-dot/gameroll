@@ -36,6 +36,14 @@ export default function Main({ preferredGenres }) {
   const [screenshots, setScreenshots] = useState([]);
   const [storeLinks, setStores] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState("");
+  const slideVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { type: "spring", stiffness: 260, damping: 20, bounce: 0.3 },
+    },
+  };
   const [activeIndex, setActiveIndex] = useState(0);
   const [lastActiveIndex, setLastActiveIndex] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -528,55 +536,41 @@ export default function Main({ preferredGenres }) {
           />
         )}
       </AnimatePresence>
+      <div className="p-50 absolute inset-0 bg-gradient-to-br from-gray-900 via-indigo-900 to-black opacity-80 z-0 animate-gradient-xy pointer-events-none mix-blend-multiply" />
 
       <Swiper
         direction="vertical"
         slidesPerView={1}
-        mousewheel={true}
+        mousewheel={{
+          forceToAxis: true,
+          sensitivity: 1,
+          thresholdDelta: 50,
+          thresholdTime: 1000,
+        }}
         modules={[Mousewheel]}
         onSlideChange={handleSlideChange}
-        onSwiper={(s) => {
-          mainSwiperRef.current = s;
-        }}
-        className="h-screen w-screen"
+        className="z-10 h-screen w-screen"
         allowTouchMove={!selectedGenre && !showSearch}
       >
         {games.map((game, index) => (
           <SwiperSlide key={`${game.id}-${index}`}>
             <motion.div
-              animate={{
-                scale: selectedGenre ? 0.95 : 1,
-                filter: selectedGenre ? "blur(20px)" : "blur(0px)",
-              }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="relative h-full w-full flex justify-center items-center"
+              className="relative w-full h-full overflow-hidden shadow-lg z-10"
+              variants={slideVariants}
+              initial="hidden"
+              animate={activeIndex === index ? "visible" : "hidden"}
             >
+              {/* Blurred background */}
               <div
-                className={`relative w-[100vw] lg:w-[94vw] h-[100vh] lg:h-[90vh] lg:rounded-[40px] overflow-hidden shadow-[0px_10px_32px_16px_rgba(0,_0,_0,_0.1)] transition-all duration-700 ${activeIndex === index ? "opacity-100 lg:scale-105 scale-100" : "opacity-40 scale-95"}`}
-              >
-                {/* Image with fallback */}
-                <div className="relative w-full h-[40vh] lg:h-full lg:w-full overflow-hidden bg-gray-800">
-                  {game.background_image ? (
-                    <Image
-                      src={game.background_image}
-                      alt={game.name}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 100vh"
-                      className={`transition-transform duration-700 ${activeIndex === index ? "scale-105" : "scale-100"} object-cover object-top`}
-                      priority={index < 3}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                      <div className="text-white text-4xl">🎮</div>
-                    </div>
-                  )}
-                </div>
+                className={`absolute inset-0 ${
+                  selectedGenre ? "blur-lg" : ""
+                } bg-cover`}
+                style={{ backgroundImage: `url(${game.background_image})` }}
+              />
 
+              <div className="relative z-10 w-full h-full flex flex-col justify-center items-center">
                 <div className="lg:hidden absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#0c1011] via-[#0c1011] to-transparent pointer-events-none"></div>
-                <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent rounded-[40px] pointer-events-none w-full h-full"></div>
+                <div className="hidden lg:block absolute inset-0 bg-gradient-to-t from-[#00000040] via-[#00000040] to-transparent pointer-events-none w-full h-full"></div>
 
                 {/* Content Overlay */}
                 <div className="absolute inset-0 flex flex-col lg:flex-row justify-center items-center">
@@ -638,7 +632,6 @@ export default function Main({ preferredGenres }) {
                               className="group relative w-full lg:w-auto bg-white text-black px-8 py-3 rounded-full font-bold text-sm lg:text-base transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] flex items-center justify-center gap-2 overflow-hidden"
                               disabled={storeLinks.length === 0}
                             >
-                              <span className="relative z-10">Get Now</span>
                               <svg
                                 className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
                                 fill="none"
@@ -653,6 +646,7 @@ export default function Main({ preferredGenres }) {
                                 />
                               </svg>
                               <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-0"></div>
+                              <span className="relative z-10">Get Now</span>
                             </button>
 
                             {/* Individual clickable store icons */}

@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 @layer utilities {
-
   /* Mobile optimizations */
   @media (max-width: 1024px) {
     html {
@@ -148,13 +147,31 @@
   inset: 0;
   transform: translateX(-100%);
   z-index: 0;
-  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    transparent 100%
+  );
 }
-
 .shiny-button:not(:disabled):hover .shiny-button-shine {
   animation: shimmer 1.5s infinite;
 }
-
+@keyframes gradient-xy {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.animate-gradient-xy {
+  background-size: 400% 400%;
+  animation: gradient-xy 15s ease infinite;
+}
 .shiny-button span,
 .shiny-button svg {
   position: relative;
