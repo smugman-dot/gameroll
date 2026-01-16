@@ -8,6 +8,7 @@ import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  markGamesAsSeen,
   fetchGames,
   fetchGameDetails,
   fetchGameScreenshots,
@@ -30,7 +31,12 @@ import { useMemo } from "react";
 // fix screenshot flicker when scrolling
 
 export default function Main({ preferredGenres }) {
-  const seed = useMemo(() => Date.now(), []);
+  const seed = useMemo(() => {
+    const s = Date.now() + Math.floor(Math.random() * 10000000);
+    console.log("[DEBUG] New session seed:", s);
+    console.log("[DEBUG] Session storage cleared:", sessionStorage.getItem("game_feed_seen_session"));
+    return s;
+  }, []);
   const [games, setGames] = useState([]);
   const [gameDetails, setGameDetails] = useState(null);
   const [screenshots, setScreenshots] = useState([]);
@@ -158,8 +164,10 @@ export default function Main({ preferredGenres }) {
     const fetchInitial = async () => {
       setLoading(true);
       try {
+        // Pick a random starting page (1-3) for each session for diversity
+        const randomPage = Math.floor(Math.random() * 3) + 1;
         const initialGames = await fetchGames({
-          page: 1,
+          page: randomPage,
           genres: preferredGenres,
           seed: seed,
         });
@@ -206,6 +214,12 @@ export default function Main({ preferredGenres }) {
       pendingSlideIndexRef.current = null;
     }
   }, [games]);
+
+  useEffect(() => {
+    if (games[activeIndex]) {
+      markGamesAsSeen([games[activeIndex].id]);
+    }
+  }, [activeIndex, games]);
 
   useEffect(() => {
     if (!showDetails || games.length === 0 || !games[activeIndex]) return;
@@ -287,6 +301,10 @@ export default function Main({ preferredGenres }) {
       currentGameRef.current.id !== nextGame.id
     ) {
       const viewDuration = (Date.now() - viewStartTime.current) / 1000;
+
+      // Mark the previous game as seen
+      markGamesAsSeen([currentGameRef.current.id]);
+
       if (viewDuration < 2) {
         engine.recordSkip(currentGameRef.current);
       } else {
@@ -562,9 +580,8 @@ export default function Main({ preferredGenres }) {
             >
               {/* Blurred background */}
               <div
-                className={`absolute inset-0 ${
-                  selectedGenre ? "blur-lg" : ""
-                } bg-cover`}
+                className={`absolute inset-0 ${selectedGenre ? "blur-lg" : ""
+                  } bg-cover`}
                 style={{ backgroundImage: `url(${game.background_image})` }}
               />
 
@@ -707,7 +724,7 @@ export default function Main({ preferredGenres }) {
                               <p className="text-white/70 text-xs sm:text-sm leading-relaxed line-clamp-4">
                                 {stripHtmlTags(
                                   gameDetails.description_raw ||
-                                    gameDetails.description,
+                                  gameDetails.description,
                                 )}
                               </p>
                             </div>
@@ -851,7 +868,7 @@ export default function Main({ preferredGenres }) {
                             <p className="text-white/70 text-xs leading-relaxed line-clamp-4">
                               {stripHtmlTags(
                                 gameDetails.description_raw ||
-                                  gameDetails.description,
+                                gameDetails.description,
                               )}
                             </p>
                           </div>

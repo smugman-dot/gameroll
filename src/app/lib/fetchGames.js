@@ -3,7 +3,7 @@ export async function fetchGames({
   genres = "",
   search = "",
   seed = Date.now(),
-  poolPages = 4,
+  poolPages = 3,
   pageSize = 20,
 }) {
   const hashString = (s) =>
@@ -27,27 +27,26 @@ export async function fetchGames({
 
   const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 
-  const STORAGE_KEY = "game_feed_seen_v1";
+  const SESSION_STORAGE_KEY = "game_feed_seen_session";
   let seenMap = {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     seenMap = raw ? JSON.parse(raw) : {};
+    console.log("[fetchGames] Seen map:", seenMap);
   } catch (e) {
     seenMap = {};
   }
 
-  const seedR = mulberry32(Number(seed));
-  const pages = new Set();
-  pages.add(Number(page));
-  while (pages.size < poolPages) {
-    const p = 1 + Math.floor(seedR() * 20);
-    pages.add(p);
+  const basePageDistance = Math.floor(seededRandForId(seed, 999) * 10);
+  const pagesToFetch = [];
+  for (let i = 0; i < 2; i++) {
+    pagesToFetch.push(Number(page) + (i * (basePageDistance + 1)));
   }
 
-  const fetchPromises = Array.from(pages).map((p) => {
+  const fetchPromises = pagesToFetch.map((p) => {
     const url = `/api/games?page=${p}&page_size=${pageSize}&genres=${encodeURIComponent(
       genres,
-    )}&search=${encodeURIComponent(search)}&seed=${encodeURIComponent(seed)}`;
+    )}&search=${encodeURIComponent(search)}`;
     return fetch(url, { cache: "no-store" }).then(async (r) => {
       if (!r.ok) {
         const text = await r.text().catch(() => "");
@@ -99,26 +98,33 @@ export async function fetchGames({
       const relevance =
         search && typeof g.name === "string" && search.length
           ? (() => {
-              const q = search.toLowerCase();
-              const name = g.name.toLowerCase();
-              if (name === q) return 1;
-              if (name.startsWith(q)) return 0.9;
-              if (name.includes(q)) return 0.7;
-              return 0;
-            })()
+            const q = search.toLowerCase();
+            const name = g.name.toLowerCase();
+            if (name === q) return 1;
+            if (name.startsWith(q)) return 0.9;
+            if (name.includes(q)) return 0.7;
+            return 0;
+          })()
           : 0;
 
       const rand = seededRandForId(seed, g.id);
       const seenCount = seenMap[g.id] ?? 0;
 
+      let seenPenalty = 0;
+      if (seenCount >= 2) {
+        seenPenalty = -10;
+      } else if (seenCount === 1) {
+        seenPenalty = -0.5;
+      }
+
       const score =
-        met * 0.45 +
-        rat * 0.15 +
-        recency * 0.1 +
-        (1 - added) * 0.15 +
-        relevance * 0.15 +
-        rand * 0.25 -
-        Math.log(1 + seenCount) * 0.35;
+        met * 0.15 +
+        rat * 0.05 +
+        recency * 0.05 +
+        (1 - added) * 0.05 +
+        relevance * 0.1 +
+        rand * 0.5 +
+        seenPenalty;
 
       return { game: g, score, rand, seenCount };
     })
@@ -192,17 +198,16 @@ export async function fetchGames({
 
   return out;
 }
-
 export function markGamesAsSeen(ids = []) {
-  const STORAGE_KEY = "game_feed_seen_v1";
+  const SESSION_STORAGE_KEY = "game_feed_seen_session";
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     const map = raw ? JSON.parse(raw) : {};
     for (const id of ids) {
       map[id] = (map[id] || 0) + 1;
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch (e) {}
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(map));
+  } catch (e) { }
 }
 
 export async function fetchIGDBStores(gameName) {
