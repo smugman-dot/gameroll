@@ -29,18 +29,20 @@ export async function fetchGames({
 
   const SESSION_STORAGE_KEY = "game_feed_seen_session";
   let seenMap = {};
-  try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    seenMap = raw ? JSON.parse(raw) : {};
-    console.log("[fetchGames] Seen map:", seenMap);
-  } catch (e) {
-    seenMap = {};
+  if (typeof window !== "undefined") {
+    try {
+      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      seenMap = raw ? JSON.parse(raw) : {};
+      console.log("[fetchGames] Seen map:", seenMap);
+    } catch (e) {
+      seenMap = {};
+    }
   }
 
   const basePageDistance = Math.floor(seededRandForId(seed, 999) * 10);
   const pagesToFetch = [];
   for (let i = 0; i < 2; i++) {
-    pagesToFetch.push(Number(page) + (i * (basePageDistance + 1)));
+    pagesToFetch.push(Number(page) + i * (basePageDistance + 1));
   }
 
   const fetchPromises = pagesToFetch.map((p) => {
@@ -98,13 +100,13 @@ export async function fetchGames({
       const relevance =
         search && typeof g.name === "string" && search.length
           ? (() => {
-            const q = search.toLowerCase();
-            const name = g.name.toLowerCase();
-            if (name === q) return 1;
-            if (name.startsWith(q)) return 0.9;
-            if (name.includes(q)) return 0.7;
-            return 0;
-          })()
+              const q = search.toLowerCase();
+              const name = g.name.toLowerCase();
+              if (name === q) return 1;
+              if (name.startsWith(q)) return 0.9;
+              if (name.includes(q)) return 0.7;
+              return 0;
+            })()
           : 0;
 
       const rand = seededRandForId(seed, g.id);
@@ -200,6 +202,9 @@ export async function fetchGames({
 }
 export function markGamesAsSeen(ids = []) {
   const SESSION_STORAGE_KEY = "game_feed_seen_session";
+
+  if (typeof window === "undefined") return;
+
   try {
     const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     const map = raw ? JSON.parse(raw) : {};
@@ -207,7 +212,7 @@ export function markGamesAsSeen(ids = []) {
       map[id] = (map[id] || 0) + 1;
     }
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(map));
-  } catch (e) { }
+  } catch (e) {}
 }
 
 export async function fetchIGDBStores(gameName) {

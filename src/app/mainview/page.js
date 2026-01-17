@@ -34,7 +34,10 @@ export default function Main({ preferredGenres }) {
   const seed = useMemo(() => {
     const s = Date.now() + Math.floor(Math.random() * 10000000);
     console.log("[DEBUG] New session seed:", s);
-    console.log("[DEBUG] Session storage cleared:", sessionStorage.getItem("game_feed_seen_session"));
+    console.log(
+      "[DEBUG] Session storage cleared:",
+      sessionStorage.getItem("game_feed_seen_session"),
+    );
     return s;
   }, []);
   const [games, setGames] = useState([]);
@@ -580,8 +583,9 @@ export default function Main({ preferredGenres }) {
             >
               {/* Blurred background */}
               <div
-                className={`absolute inset-0 ${selectedGenre ? "blur-lg" : ""
-                  } bg-cover`}
+                className={`absolute inset-0 ${
+                  selectedGenre ? "blur-lg" : ""
+                } bg-cover`}
                 style={{ backgroundImage: `url(${game.background_image})` }}
               />
 
@@ -724,7 +728,7 @@ export default function Main({ preferredGenres }) {
                               <p className="text-white/70 text-xs sm:text-sm leading-relaxed line-clamp-4">
                                 {stripHtmlTags(
                                   gameDetails.description_raw ||
-                                  gameDetails.description,
+                                    gameDetails.description,
                                 )}
                               </p>
                             </div>
@@ -868,7 +872,7 @@ export default function Main({ preferredGenres }) {
                             <p className="text-white/70 text-xs leading-relaxed line-clamp-4">
                               {stripHtmlTags(
                                 gameDetails.description_raw ||
-                                gameDetails.description,
+                                  gameDetails.description,
                               )}
                             </p>
                           </div>
