@@ -220,7 +220,6 @@ export async function fetchIGDBStores(gameName) {
     const res = await fetch(`/api/igdb?game=${encodeURIComponent(gameName)}`, {
       cache: "no-store",
     });
-
     if (!res.ok) {
       console.error("Frontend: API responded with error", res.status);
       return [];

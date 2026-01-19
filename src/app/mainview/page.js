@@ -33,11 +33,6 @@ import { useMemo } from "react";
 export default function Main({ preferredGenres }) {
   const seed = useMemo(() => {
     const s = Date.now() + Math.floor(Math.random() * 10000000);
-    console.log("[DEBUG] New session seed:", s);
-    console.log(
-      "[DEBUG] Session storage cleared:",
-      sessionStorage.getItem("game_feed_seen_session"),
-    );
     return s;
   }, []);
   const [games, setGames] = useState([]);
