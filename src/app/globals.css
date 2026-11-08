@@ -1,66 +1,5 @@
 @import "tailwindcss";
 
-@layer utilities {
-  /* Mobile optimizations */
-  @media (max-width: 1024px) {
-    html {
-      scroll-behavior: auto;
-    }
-
-    body {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      user-select: none;
-    }
-
-    /* Better touch feedback */
-    button {
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    /* Optimize scrollbar for mobile */
-    .scrollbar-hide {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-
-    .scrollbar-hide::-webkit-scrollbar {
-      display: none;
-    }
-
-    /* Improve touch interactions */
-    input,
-    button,
-    a {
-      min-height: 44px;
-      min-width: 44px;
-    }
-  }
-
-  /* Tablet optimizations (768px - 1024px) */
-  @media (min-width: 768px) and (max-width: 1024px) {
-    .fancy-button {
-      padding: 16px 24px;
-      font-size: 0.875rem;
-    }
-  }
-
-  /* Small mobile (< 640px) */
-  @media (max-width: 640px) {
-    .fancy-button {
-      padding: 14px 20px;
-      font-size: 0.75rem;
-      letter-spacing: 1px;
-    }
-
-    h1,
-    h2,
-    h3 {
-      line-height: 1.2;
-    }
-  }
-}
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -70,110 +9,19 @@
   scrollbar-width: none;
 }
 
-/* Chrome / Edge / Safari */
 .search-scroll::-webkit-scrollbar {
   width: 8px;
 }
 
-.search-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 999px;
+@keyframes sweep {
+  from { transform: translateX(-30vw); }
+  to   { transform: translateX(130vw); }
 }
-
-.search-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 999px;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-
-.search-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-/* Firefox */
-.search-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.shiny-button {
-  position: relative;
-  background-color: white;
-  color: black;
-  padding: 1rem 3rem;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  overflow: hidden;
-  cursor: pointer;
-  border: none;
-  letter-spacing: 0.02em;
-}
-
-.shiny-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background-color: #333;
-  color: #666;
-  box-shadow: none;
-}
-
-.shiny-button:not(:disabled):hover {
-  transform: scale(1.02);
-  box-shadow: 0 0 40px rgba(255, 255, 255, 0.3);
-}
-
-.shiny-button:not(:disabled):active {
-  transform: scale(0.98);
-}
-
-.shiny-button-shine {
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  z-index: 0;
-  background: linear-gradient(
-    to right,
-    transparent 0%,
-    rgba(255, 255, 255, 0.8) 50%,
-    transparent 100%
-  );
-}
-.shiny-button:not(:disabled):hover .shiny-button-shine {
-  animation: shimmer 1.5s infinite;
-}
-@keyframes gradient-xy {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-.animate-gradient-xy {
-  background-size: 400% 400%;
-  animation: gradient-xy 15s ease infinite;
-}
-.shiny-button span,
-.shiny-button svg {
-  position: relative;
-  z-index: 10;
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
 }

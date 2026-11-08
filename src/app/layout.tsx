@@ -1,5 +1,6 @@
-// app/layout.js
 import "./globals.css";
+
+import { outfit } from "./fonts";
 
 export const metadata = {
   title: "Gameroll",
@@ -8,7 +9,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={outfit.className}>
       <body>{children}</body>
     </html>
   );

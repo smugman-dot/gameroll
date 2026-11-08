@@ -12,6 +12,7 @@
     "noEmit": true,
     "incremental": true,
     "module": "Node16",
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "moduleResolution": "node16",
     "resolveJsonModule": true,
