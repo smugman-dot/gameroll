@@ -1,7 +1,5 @@
-export default function Main() {
+export default function Home() {
   return (
-    <div>
-    <p>hi</p>
-    </div>
-  );
+    <div>hi</div>
+  )
 }

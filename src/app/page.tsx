@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Home from "./home/page";
 import "./globals.css";
 
-export default function Home() {
+export default function Main() {
   const [preferredGenres, setPreferredGenres] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();

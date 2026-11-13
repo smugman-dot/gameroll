@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+body {
+  background-color: black;
+}
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -24,4 +27,22 @@
 @keyframes rise {
   from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
   to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes logoIn {
+  from { opacity: 0; transform: perspective(600px) rotateY(-80deg) scale(0.6); filter: blur(12px); }
+  60%  { opacity: 1; transform: perspective(600px) rotateY(8deg) scale(1.06); filter: blur(0); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes letterIn {
+  from { opacity: 0; transform: translateY(0.7em) scale(0.8); filter: blur(10px); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes riseSoft {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
 }
