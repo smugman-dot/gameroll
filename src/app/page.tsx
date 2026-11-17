@@ -24,14 +24,6 @@ export default function Main() {
     setLoading(false);
   }, [router]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen bg-[#0c1011] text-white">
-        Loading preferences...
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col w-screen h-screen max-h-screen">
       {preferredGenres && <Home />}

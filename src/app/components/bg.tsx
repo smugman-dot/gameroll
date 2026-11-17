@@ -151,11 +151,6 @@ export default function BeautifulDiv({
 
       <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(var(--lr)_circle_at_var(--mx)_var(--my),rgba(99,102,241,var(--la)),transparent_70%)]" />
 
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-0 top-[18%] size-44 rounded-full bg-[#4f5bff] opacity-25 blur-[90px] motion-safe:animate-[sweep_22s_linear_infinite]" />
-        <div className="absolute left-0 top-[52%] size-36 rounded-full bg-[#8b5cf6] opacity-20 blur-[80px] motion-safe:animate-[sweep_28s_linear_infinite] [animation-delay:-11s]" />
-        <div className="absolute left-0 top-[78%] size-32 rounded-full bg-[#22b8d8] opacity-15 blur-[80px] motion-safe:animate-[sweep_34s_linear_infinite] [animation-delay:-22s]" />
-      </div>
 
       <div
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] mix-blend-overlay"

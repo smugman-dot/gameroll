@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+
 const VERT = `
 attribute vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }
@@ -10,13 +11,16 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }
 const FRAG = `
 precision highp float;
 
-uniform vec2  uRes;
-uniform float uTime;
-uniform vec2  uMouse;
-uniform float uCell;
-uniform vec3  uSplit;
-uniform float uIntro;
-uniform vec3  uClicks[8];
+uniform vec2  uRes;    
+uniform float uTime;   
+uniform vec2  uMouse;  
+uniform float uCell;   
+uniform vec3  uSplit;  
+uniform float uIntro;  
+uniform vec3  uLo;     
+uniform vec3  uHi;     
+uniform vec3  uClicks[8]; 
+                          
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
@@ -43,7 +47,7 @@ float field(vec2 uv, float t) {
   vec2 q = vec2(fbm(uv + vec2(0.0, t * 0.05)),
                 fbm(uv + vec2(5.2, 1.3) - t * 0.04));
   float n = fbm(uv + 2.2 * q + vec2(t * 0.03, -t * 0.02));
-  n = clamp((n - 0.5) * 2.2 + 0.5, 0.0, 1.0);
+  n = clamp((n - 0.5) * 2.2 + 0.5, 0.0, 1.0); 
   float ridge = 1.0 - abs(2.0 * n - 1.0);
   return smoothstep(0.86, 0.995, ridge);
 }
@@ -51,7 +55,7 @@ float field(vec2 uv, float t) {
 void main() {
   vec2 frag   = gl_FragCoord.xy;
   vec2 cell   = floor(frag / uCell);
-  vec2 center = (cell + 0.5) * uCell;
+  vec2 center = (cell + 0.5) * uCell;         
 
   vec2 uv = center / uRes.y * 1.6;
 
@@ -61,7 +65,7 @@ void main() {
     vec3  c     = uClicks[i];
     vec2  delta = center - c.xy;
     float dc    = length(delta) / uRes.y;
-    float band  = (dc - c.z * 0.8) * 18.0;
+    float band  = (dc - c.z * 0.8) * 18.0; 
     float ring  = exp(-band * band) * exp(-c.z * 1.5);
     shock += ring;
 
@@ -79,18 +83,18 @@ void main() {
   float d = length(center - uMouse) / uRes.y;
   b += 0.7 * exp(-d * d * 30.0);
 
-  b += shock;
+  b += shock;            
   b = clamp(b, 0.0, 1.0);
 
   float radius = uCell * (0.07 + 0.45 * b);
   float dist   = length(frag - center);
   float mask   = 1.0 - smoothstep(radius - 1.0, radius + 1.0, dist);
 
-  vec3 lo  = vec3(0.22, 0.16, 0.62);
-  vec3 hi  = vec3(0.78, 0.74, 1.00);
+  vec3 lo  = uLo;
+  vec3 hi  = uHi;
   vec3 col = mix(lo, hi, smoothstep(0.2, 0.9, b));
   col *= mix(0.35, 1.0, b);
-  col *= 0.7;
+  col *= 0.7;    
 
   vec2  o      = (frag / uRes - vec2(0.5, 0.82)) * vec2(uRes.x / uRes.y, 1.0);
   float reveal = smoothstep(0.0, 0.4, uIntro * 2.4 - length(o));
@@ -103,7 +107,6 @@ void main() {
 const CELL = 8;
 const SPEED = 1;
 const INTRO_MS = 2800;
-const MAX_DT = 33;
 
 const SPLIT_RADIUS = 0.3;
 const SPLIT_STRENGTH = 0.45;
@@ -116,19 +119,18 @@ export default function HalftoneBg({ className = "" }: { className?: string }) {
     const canvas = ref.current;
     if (!canvas) return;
     const gl = canvas.getContext("webgl", { antialias: false, alpha: true });
-    if (!gl) return;
+    if (!gl) return; // no WebGL: the canvas just stays dark
 
     const compile = (type: number, src: string) => {
-      const s = gl.createShader(type)!;
+      const s = gl.createShader(type);
+      if (!s) return null;
       gl.shaderSource(s, src);
       gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) {
         console.error(gl.getShaderInfoLog(s));
       }
       return s;
     };
-
-    const parallel = gl.getExtension("KHR_parallel_shader_compile");
 
     const prog = gl.createProgram()!;
     gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
@@ -150,6 +152,8 @@ export default function HalftoneBg({ className = "" }: { className?: string }) {
     const uClicks = gl.getUniformLocation(prog, "uClicks");
     const uSplit = gl.getUniformLocation(prog, "uSplit");
     const uIntro = gl.getUniformLocation(prog, "uIntro");
+    const uLo = gl.getUniformLocation(prog, "uLo");
+    const uHi = gl.getUniformLocation(prog, "uHi");
 
     let dpr = 1;
     const resize = () => {
@@ -198,17 +202,41 @@ export default function HalftoneBg({ className = "" }: { className?: string }) {
       next = (next + 1) % MAX_WAVES;
     };
     window.addEventListener("halftone:wave", onWave);
+    const onTheme = (e: Event) => {
+      const d = (e as CustomEvent<{ lo: number[]; hi: number[] }>).detail;
+      if (d?.lo?.length === 3 && d?.hi?.length === 3) {
+        paletteTarget.lo = d.lo;
+        paletteTarget.hi = d.hi;
+      }
+    };
+    window.addEventListener("halftone:theme", onTheme);
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const t0 = performance.now();
+    let introStart = -1;
+    const palette = { lo: [0.22, 0.16, 0.62], hi: [0.78, 0.74, 1.0] };
+    const paletteTarget = { lo: [0.22, 0.16, 0.62], hi: [0.78, 0.74, 1.0] };
     let raf = 0;
 
-    const render = (now: number, intro: number) => {
+    const draw = (now: number) => {
+      mx += (tx - mx) * 0.08;
+      my += (ty - my) * 0.08;
       const t = reduce ? 20 : ((now - t0) / 1000) * SPEED + 20;
+
+      if (introStart < 0) introStart = now;
+      const ip = Math.min((now - introStart) / INTRO_MS, 1);
+      const intro = reduce ? 1 : 1 - Math.pow(1 - ip, 3);
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uTime, t);
       gl.uniform3f(uSplit, SPLIT_RADIUS, SPLIT_STRENGTH, SPLIT_FADE);
       gl.uniform1f(uIntro, intro);
+
+      for (let i = 0; i < 3; i++) {
+        palette.lo[i] += (paletteTarget.lo[i] - palette.lo[i]) * 0.04;
+        palette.hi[i] += (paletteTarget.hi[i] - palette.hi[i]) * 0.04;
+      }
+      gl.uniform3f(uLo, palette.lo[0], palette.lo[1], palette.lo[2]);
+      gl.uniform3f(uHi, palette.hi[0], palette.hi[1], palette.hi[2]);
       gl.uniform2f(uMouse, mx, my);
       gl.uniform1f(uCell, CELL * dpr);
       waves.forEach((w, i) => {
@@ -218,38 +246,6 @@ export default function HalftoneBg({ className = "" }: { className?: string }) {
       });
       gl.uniform3fv(uClicks, waveData);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
-
-    let stage: 0 | 1 | 2 = 0;
-    let last = 0;
-    let introElapsed = 0;
-
-    const draw = (now: number) => {
-      if (stage === 0) {
-        const compiled = !parallel || gl.getProgramParameter(prog, parallel.COMPLETION_STATUS_KHR);
-        if (compiled) {
-          render(now, 0);
-          gl.finish();
-          stage = 1;
-        }
-        raf = requestAnimationFrame(draw);
-        return;
-      }
-
-      if (stage === 1) {
-        last = now;
-        stage = 2;
-      }
-
-      mx += (tx - mx) * 0.08;
-      my += (ty - my) * 0.08;
-
-      introElapsed += Math.min(Math.max(now - last, 0), MAX_DT);
-      last = now;
-      const ip = Math.min(introElapsed / INTRO_MS, 1);
-      const intro = reduce ? 1 : 1 - Math.pow(1 - ip, 3);
-
-      render(now, intro);
       if (!reduce) raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
@@ -260,6 +256,7 @@ export default function HalftoneBg({ className = "" }: { className?: string }) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("halftone:wave", onWave);
+      window.removeEventListener("halftone:theme", onTheme);
     };
   }, []);
 
