@@ -41,7 +41,7 @@ export default function MainView() {
     <Bg>
       {loading && <div>Loading games...</div>}
       {!loading && feed && (
-        <SwipeDeck games={feed.games} preferred={feed.preferred} />
+        <SwipeDeck preferred={feed.preferred} />
       )}
     </Bg>
   );
