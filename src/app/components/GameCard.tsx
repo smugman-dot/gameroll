@@ -1,17 +1,28 @@
 "use client";
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { GENRES } from "../lib/genres";
-import { GameSchema } from "../lib/igdb";
+import type { Game } from "../lib/game";
 import type { Palette } from "../lib/color";
 import { wideFont } from "../fonts";
-import type { Game } from "../lib/game";
-export type { Game };
+
 const GENRE_NAME = new Map<number, string>(GENRES.map((g) => [g.id, g.name]));
 
 const RISE = "animate-[rise_0.8s_cubic-bezier(0.16,1,0.3,1)_backwards]";
 
 const MIN_RATIO = 1.5;
 
+export type { Game };
+
+const steamUrl = (name: string) =>
+  `https://store.steampowered.com/search/?term=${encodeURIComponent(name)}`;
+
+const titleSize = (name: string) => {
+  const n = name.length;
+  if (n <= 18) return "text-4xl md:text-6xl";
+  if (n <= 26) return "text-3xl md:text-5xl";
+  if (n <= 36) return "text-2xl md:text-4xl";
+  return "text-xl md:text-3xl";
+};
 
 function ArtFallback({ palette }: { palette: Palette }) {
   const a = palette.accent.join(" ");
@@ -98,25 +109,24 @@ function NavArrow({
 
 async function getArtwork(gameName: string): Promise<string[]> {
   try {
-    const response = await fetch(
-      `/api/steamgriddb?name=${encodeURIComponent(gameName)}`
-    );
-
+    const response = await fetch(`/api/steamgriddb?name=${encodeURIComponent(gameName)}`);
     const data = await response.json();
-
     if (!response.ok) {
       console.error("Artwork API error:", data);
       return [];
     }
-
-    return (data.heroes ?? []).map(
-      (item: { url: string }) => item.url
-    );
+    return (data.heroes ?? []).map((item: { url: string }) => item.url);
   } catch (error) {
     console.error("Failed to get artwork:", error);
     return [];
   }
 }
+
+const artCache = new Map<string, Promise<string[]>>();
+const getArtworkCached = (name: string) => {
+  if (!artCache.has(name)) artCache.set(name, getArtwork(name));
+  return artCache.get(name)!;
+};
 
 export default function GameCard({
   game,
@@ -142,37 +152,86 @@ export default function GameCard({
   const [coverBroken, setCoverBroken] = useState(false);
   const [steamArtwork, setSteamArtwork] = useState<string[]>([]);
 
+  const [open, setOpen] = useState(false);
+  const [scrollable, setScrollable] = useState(false);
+  const [fullH, setFullH] = useState(0);
+  const descRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
   const markBad = (src: string) => setFailed((f) => (f[src] ? f : { ...f, [src]: true }));
 
-  const images = [
-    ...(game.artworks || game.cover
-      ? [game.artworks ?? game.cover!]
-      : steamArtwork),
-    ...(game.screenshots ?? []),
-  ].filter(
-    (s): s is string => !!s && !failed[s]
-  );
+  const heroBad = !game.artworks || !!failed[game.artworks];
 
   useEffect(() => {
-    if (game.artworks || game.cover) return;
-
+    if (!heroBad) return;
     let cancelled = false;
-
-    async function loadArtwork() {
-      const result = await getArtwork(game.name);
-
-      if (!cancelled) {
-        setSteamArtwork(result);
-      }
-    }
-
-    loadArtwork();
-
+    getArtworkCached(game.name).then((r) => {
+      if (!cancelled) setSteamArtwork(r);
+    });
     return () => {
       cancelled = true;
     };
-  }, [game.name, game.artworks, game.cover]);
+  }, [game.name, heroBad]);
+
+  const images = [
+    ...(game.artworks && !heroBad ? [game.artworks] : []),
+    ...(heroBad ? steamArtwork.slice(0, 3) : []),
+    ...(game.screenshots ?? []),
+  ].filter((s) => !failed[s]);
+
   const current = Math.min(shot, images.length - 1);
+
+  const [overflowing, setOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    const measure = () => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight);
+      if (!lh) return;
+      const lines = window.matchMedia("(min-width: 768px)").matches ? 5 : 4;
+      setOverflowing(el.scrollHeight > lh * lines + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [game.summary]);
+
+  const openDesc = () => {
+    const el = descRef.current;
+    if (!el) return;
+    const cap = Math.min(380, Math.round(window.innerHeight * 0.55));
+    setFullH(Math.min(el.scrollHeight, cap));
+    setScrollable(false);
+    setOpen(true);
+  };
+
+  const closeDesc = () => {
+    if (descRef.current) descRef.current.scrollTop = 0;
+    setScrollable(false);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDesc();
+    };
+    const onDown = (e: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) closeDesc();
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!active) closeDesc();
+  }, [active]);
 
   const stars = game.rating != null ? game.rating / 20 : null;
   const matches = game.genres.filter((g) => preferred.has(g.id)).length;
@@ -188,40 +247,43 @@ export default function GameCard({
   const at = (ms: number): CSSProperties | undefined =>
     active ? { animationDelay: `${delay + ms}ms` } : undefined;
 
+  const dim = `transition-[opacity,filter] duration-500 ${open ? "!opacity-20 blur-[3px]" : ""}`;
+
   return (
     <article
       style={{ "--accent": palette.accent.join(" ") } as CSSProperties}
-      className="relative h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0910] shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)]"
+      className="relative h-full w-full rounded-2xl border border-white/10 bg-[#0a0910] shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)]"
     >
-      <div className="absolute inset-0 transition-[filter] duration-200 [filter:grayscale(max(calc(var(--p,0)*-1),0))]">
-
-        <div className="absolute inset-0 origin-center transition-transform duration-300 [transform:translateX(calc(var(--p,0)*-8px))_scale(1.04)]">
-          {images.length ? (
-            images.map((src, i) => (
-              <img
-                key={src}
-                src={src}
-                alt=""
-                draggable={false}
-                onError={() => markBad(src)}
-                onLoad={(e) => {
-                  const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
-                  if (w && h && w / h < MIN_RATIO) markBad(src);
-                }}
-                className={`absolute inset-0 size-full select-none object-cover object-[center_30%] transition-opacity duration-500 ${i === current ? "opacity-100" : "opacity-0"
-                  }`}
-              />
-            ))
-          ) : (
-            <ArtFallback palette={palette} />
-          )}
+      <div className="absolute inset-0 overflow-hidden rounded-2xl">
+        <div className="absolute inset-0 transition-[filter] duration-200 [filter:grayscale(max(calc(var(--p,0)*-1),0))]">
+          <div className="absolute inset-0 origin-center transition-transform duration-300 [transform:translateX(calc(var(--p,0)*-8px))_scale(1.04)]">
+            {images.length ? (
+              images.map((src, i) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  draggable={false}
+                  onError={() => markBad(src)}
+                  onLoad={(e) => {
+                    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                    if (w && h && w / h < MIN_RATIO) markBad(src);
+                  }}
+                  className={`absolute inset-0 size-full select-none object-cover object-[center_30%] transition-opacity duration-500 ${i === current ? "opacity-100" : "opacity-0"
+                    }`}
+                />
+              ))
+            ) : (
+              <ArtFallback palette={palette} />
+            )}
+          </div>
         </div>
+
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(8,7,14,0.95)_0%,rgba(8,7,14,0.86)_22%,rgba(8,7,14,0.66)_40%,rgba(8,7,14,0.4)_58%,rgba(8,7,14,0.18)_78%,transparent_100%)] md:hidden" />
+        <div className="absolute inset-0 hidden bg-[radial-gradient(75%_100%_at_20%_52%,rgba(8,7,14,0.6),transparent_78%),linear-gradient(to_right,rgba(8,7,14,0.93)_0%,rgba(8,7,14,0.88)_14%,rgba(8,7,14,0.74)_28%,rgba(8,7,14,0.52)_42%,rgba(8,7,14,0.3)_56%,rgba(8,7,14,0.13)_70%,rgba(8,7,14,0.04)_85%,transparent_100%)] md:block" />
       </div>
 
-      <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(8,7,14,0.95)_0%,rgba(8,7,14,0.86)_22%,rgba(8,7,14,0.66)_40%,rgba(8,7,14,0.4)_58%,rgba(8,7,14,0.18)_78%,transparent_100%)] md:hidden" />
-      <div className="absolute inset-0 hidden bg-[radial-gradient(75%_100%_at_20%_52%,rgba(8,7,14,0.6),transparent_78%),linear-gradient(to_right,rgba(8,7,14,0.93)_0%,rgba(8,7,14,0.88)_14%,rgba(8,7,14,0.74)_28%,rgba(8,7,14,0.52)_42%,rgba(8,7,14,0.3)_56%,rgba(8,7,14,0.13)_70%,rgba(8,7,14,0.04)_85%,transparent_100%)] md:block" />
-
-      <div className="relative z-10 flex h-full w-full flex-col justify-between p-6 [text-shadow:0_2px_22px_rgba(0,0,0,0.65)] md:w-[52%] md:p-10 md:pl-16">
+      <div className="relative z-10 flex h-full w-full flex-col justify-between gap-6 p-6 [text-shadow:0_2px_22px_rgba(0,0,0,0.65)] md:w-[52%] md:p-10 md:pl-16">
         {/* top: logo / cover only */}
         <div className={`${rise} w-fit`} style={at(0)}>
           {game.logo && !logoBroken ? (
@@ -238,7 +300,7 @@ export default function GameCard({
               alt=""
               draggable={false}
               onError={() => setCoverBroken(true)}
-              className="aspect-[3/4] h-24 select-none rounded-lg border border-white/15 object-cover shadow-[0_12px_30px_-8px_rgba(0,0,0,0.85)] md:h-32"
+              className="aspect-[3/4] h-24 select-none rounded-lg border border-white/15 object-cover shadow-[0_12px_30px_-8px_rgba(0,0,0,0.85)] md:h-32 [@media(max-height:800px)]:md:h-24"
             />
           ) : (
             <div
@@ -251,13 +313,35 @@ export default function GameCard({
 
         <div className="space-y-5">
           <h2
-            className={`${wideFont.className} ${rise} line-clamp-2 text-4xl leading-[1.02] tracking-tight text-white md:text-6xl`}
+            className={`${wideFont.className} ${rise} ${dim} ${titleSize(game.name)} leading-[1.02] tracking-tight text-white`}
             style={at(70)}
           >
-            {game.name}
+            <a
+              href={steamUrl(game.name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${game.name} on Steam`}
+              onPointerDown={(e) => e.stopPropagation()}
+              className={`group/title -mx-3 -my-1.5 inline-flex max-w-[calc(100%+1.5rem)] cursor-pointer items-start gap-[0.3em] rounded-[0.55em] px-3 py-1.5 outline-none transition-[background-color,box-shadow,backdrop-filter] duration-300 ease-out hover:bg-white/10 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.14)] hover:backdrop-blur-md focus-visible:bg-white/10 focus-visible:shadow-[0_0_0_2px_rgb(var(--accent))] ${open ? "pointer-events-none" : ""
+                }`}
+            >
+              <span className="line-clamp-3">{game.name}</span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="mt-[0.28em] size-[0.5em] shrink-0 -translate-x-2 translate-y-1 text-[rgb(var(--accent))] opacity-0 transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/title:translate-x-0 group-hover/title:translate-y-0 group-hover/title:opacity-100 group-focus-visible/title:translate-x-0 group-focus-visible/title:translate-y-0 group-focus-visible/title:opacity-100"
+              >
+                <path d="M7 17L17 7M8 7h9v9" />
+              </svg>
+            </a>
           </h2>
 
-          <div className={`${rise} flex flex-wrap items-center gap-x-4 gap-y-2`} style={at(140)}>
+          <div className={`${rise} ${dim} flex flex-wrap items-center gap-x-4 gap-y-2`} style={at(140)}>
             {stars != null && (
               <>
                 <Stars value={stars} />
@@ -274,7 +358,7 @@ export default function GameCard({
             )}
           </div>
 
-          <div className={`${rise} flex flex-wrap gap-2`} style={at(210)}>
+          <div className={`${rise} ${dim} flex flex-wrap gap-2`} style={at(210)}>
             {game.genres.slice(0, 4).map((genre) => (
               <span
                 key={genre.id}
@@ -283,17 +367,59 @@ export default function GameCard({
                   : "border-white/30 text-neutral-200"
                   }`}
               >
-                {GENRE_NAME.get(genre.id) ?? "Genre"}
+                {GENRE_NAME.get(genre.id) ?? genre.name}
               </span>
             ))}
           </div>
 
-          <p
-            className={`${rise} line-clamp-4 max-w-[46ch] text-sm leading-relaxed text-neutral-300/90 md:line-clamp-5 md:text-base`}
-            style={at(280)}
-          >
-            {game.summary}
-          </p>
+          {game.summary && (
+            <div className={`${rise} relative`} style={at(280)}>
+              <div aria-hidden="true" className="invisible max-w-[46ch]">
+                <div className="max-h-[5.69rem] overflow-hidden text-sm leading-relaxed md:max-h-[8.12rem] md:text-base">
+                  {game.summary}
+                </div>
+                {overflowing && <span className="mt-2 inline-block text-xs">Read more</span>}
+              </div>
+
+              <div
+                ref={panelRef}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="absolute bottom-0 left-0 z-20 w-full max-w-[46ch]"
+              >
+                <div
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute -bottom-4 -inset-x-5 -top-5 -z-10 origin-bottom rounded-[28px] border border-white/10 bg-[#070b1c]/90 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9),0_0_60px_-24px_rgb(var(--accent)/0.55)] backdrop-blur-xl transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "scale-100 opacity-100" : "scale-[0.97] opacity-0"
+                    }`}
+                />
+
+                <div
+                  ref={descRef}
+                  style={open ? { maxHeight: fullH } : undefined}
+                  onClick={() => overflowing && !open && openDesc()}
+                  onTransitionEnd={(e) => {
+                    if (e.propertyName === "max-height" && open) setScrollable(true);
+                  }}
+                  className={`overflow-hidden text-sm leading-relaxed outline-none transition-[max-height,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] md:text-base ${open
+                    ? `text-neutral-100 ${scrollable ? "overflow-y-auto pr-2 [scrollbar-width:thin]" : ""}`
+                    : `max-h-[5.69rem] text-neutral-300/90 md:max-h-[8.12rem] ${overflowing ? "cursor-pointer hover:text-neutral-100" : ""}`
+                    }`}
+                >
+                  {game.summary}
+                </div>
+
+                {overflowing && (
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => (open ? closeDesc() : openDesc())}
+                    className="mt-2 inline-block cursor-pointer text-xs font-medium text-[rgb(var(--accent))] outline-none transition-opacity hover:opacity-80 focus-visible:underline"
+                  >
+                    {open ? "Show less" : "Read more"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

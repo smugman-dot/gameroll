@@ -1,4 +1,3 @@
-// components/SwipeDeck.tsx
 "use client";
 
 import {
@@ -17,7 +16,6 @@ import { GameSchema } from "../lib/igdb";
 import { normalizeGame, type Game } from "../lib/game";
 import { supabase, ensureSession } from "../lib/supabase/client";
 import { loadFeed } from "../lib/feed";
-
 import {
   DEFAULT_PALETTE,
   extractPalette,
@@ -84,7 +82,13 @@ function Kbd({ children, dark, lit }: { children: ReactNode; dark?: boolean; lit
   );
 }
 
-export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
+export default function SwipeDeck({
+  preferred,
+  paused = false,
+}: {
+  preferred: Set<number>;
+  paused?: boolean;
+}) {
   const [feed, setFeed] = useState<Game[] | null>(null);
   const games = feed ?? [];
   const [index, setIndex] = useState(0);
@@ -102,6 +106,23 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
   const drag = useRef<Drag | null>(null);
   const prefKey = [...preferred].sort((a, b) => a - b).join(",");
   const prefIds = () => (prefKey ? prefKey.split(",").map(Number) : []);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [lift, setLift] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    setLift(paused ? Math.min(0, 76 - el.getBoundingClientRect().top) : 0);
+  }, [paused]);
+
+  const slide: CSSProperties = {
+    transform: paused ? "translateX(-85vw)" : undefined,
+    opacity: paused ? 0 : 1,
+
+    filter: paused ? "blur(4px)" : undefined,
+    transition:
+      "transform 520ms cubic-bezier(0.55, 0, 0.2, 1), opacity 260ms ease-in 30ms, filter 300ms ease",
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -236,7 +257,9 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
     );
   }, [index]);
   useEffect(() => {
+    if (document.querySelector("[data-deck-paused],[aria-expanded='true']")) return;
     const onKey = (e: KeyboardEvent) => {
+      if (document.querySelector("[data-overlay-open]")) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tap = (k: "skip" | "like" | "undo") => {
         setFlash(k);
@@ -382,7 +405,7 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
     return <div className="grid min-h-dvh place-items-center text-sm text-neutral-500">Loading…</div>;
   }
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 pt-20 pb-6">
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 opacity-40 transition-[background-color] duration-1000 ease-out [mask-image:radial-gradient(65%_60%_at_50%_45%,black,transparent_80%)]"
@@ -390,19 +413,32 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
       />
 
       {/* header */}
-      <div className={`${rise} ${WIDTH}`} style={{ animationDelay: "100ms" }}>
+      <div
+        ref={headerRef}
+        className={`${rise} ${WIDTH} relative z-[45]`}
+        style={{
+          animationDelay: "100ms",
+          transform: `translateY(${lift}px)`,
+          transition: "transform 800ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
+      >
         <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/favicon.ico" width={24} height={24} alt="" className="size-6 rounded-md" />
-            <span className="text-xs font-medium uppercase tracking-[0.22em] text-neutral-400">Discover</span>
+          <div className="flex">
+            <div className="flex items-center gap-3">
+              <img src="/favicon.ico" width={24} height={24} alt="" className="size-6 rounded-md" />
+            </div>
+
           </div>
-          <div className="text-xs tabular-nums text-neutral-500">
-            <span
-              key={index}
-              className="inline-block animate-[rise_0.5s_cubic-bezier(0.16,1,0.3,1)_backwards] text-neutral-300"
-            >
-              {pad(Math.min(index + 1, games.length))}
-            </span> / {pad(games.length)}
+          <div className="flex items-center gap-4">
+            <div
+              className="text-xs tabular-nums text-neutral-500 transition-opacity duration-300" style={{ opacity: paused ? 0 : 1 }}>
+              <span
+                key={index}
+                className="inline-block animate-[rise_0.5s_cubic-bezier(0.16,1,0.3,1)_backwards] text-neutral-300"
+              >
+                {pad(Math.min(index + 1, games.length))}
+              </span> / {pad(games.length)}
+            </div>
           </div>
         </header>
         <div className="mb-4 mt-3 h-px overflow-hidden bg-white/10">
@@ -413,7 +449,7 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
         </div>
       </div>
 
-      <div className={rise} style={{ animationDelay: "250ms" }}>
+      <div className={rise} style={{ animationDelay: "250ms", ...slide }}>
         <div ref={stage} className={`relative h-[min(72vh,600px)] ${WIDTH} [--pabs:0]`}>
           {done ? (
             <div className="absolute inset-0 grid place-items-center rounded-2xl border border-white/10 bg-[#0a0910] p-8 text-center">
@@ -473,7 +509,7 @@ export default function SwipeDeck({ preferred }: { preferred: Set<number> }) {
 
       <div
         className={`${rise} mt-6 flex items-center justify-center gap-3`}
-        style={{ animationDelay: "450ms", "--accent": accentKey } as CSSProperties}
+        style={{ animationDelay: "450ms", "--accent": accentKey, ...slide } as CSSProperties}
       >
         <button
           type="button"

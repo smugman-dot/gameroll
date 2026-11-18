@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Bg from "../components/bg";
-import SwipeDeck from "../components/SwipeDeck";
+import AppShell from "../components/AppShell";
 import { GameSchema } from "../lib/igdb";
 import { getGames } from "../lib/games";
 import { z } from "zod";
@@ -41,7 +41,7 @@ export default function MainView() {
     <Bg>
       {loading && <div>Loading games...</div>}
       {!loading && feed && (
-        <SwipeDeck preferred={feed.preferred} />
+        <AppShell preferred={feed.preferred} />
       )}
     </Bg>
   );

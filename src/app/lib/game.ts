@@ -15,6 +15,7 @@ export function normalizeGame(g: Raw) {
     id: g.id,
     name: g.name,
     summary: g.summary ?? "",
+    storyline: g.storyline ?? "",
     genres: g.genres ?? [],
     rating,
     year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null,
