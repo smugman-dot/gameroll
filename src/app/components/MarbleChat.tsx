@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import GameCard from "./GameCard";
 import { DEFAULT_PALETTE, extractPalette, hueFromString, paletteFromHue, type Palette } from "../lib/color";
@@ -292,6 +292,11 @@ const step = (s: Spring, target: number, w: number, dt: number) => {
   s.v += (w * w * (target - s.x) - 2 * w * s.v) * dt;
   s.x += s.v * dt;
 };
+/* same spring, but zeta < 1 overshoots and wobbles before it settles */
+const step2 = (s: Spring, target: number, w: number, zeta: number, dt: number) => {
+  s.v += (w * w * (target - s.x) - 2 * zeta * w * s.v) * dt;
+  s.x += s.v * dt;
+};
 
 
 type Loaded = { game: Game; palette: Palette; ready: Promise<Palette> };
@@ -324,9 +329,10 @@ const loadCard = (id: number) => {
   return p;
 };
 
-const RecCtx = createContext<{ el: HTMLElement | null; open: (item: Loaded, el: HTMLElement) => void }>({
+const RecCtx = createContext<{ el: HTMLElement | null; open: (item: Loaded, el: HTMLElement) => void; seen: Set<number> }>({
   el: null,
   open: () => { },
+  seen: new Set(),
 });
 function RecFace({ game }: { game: Game }) {
   const meta = [game.year, game.rating != null ? `${(game.rating / 10).toFixed(1)} / 10` : null].filter(Boolean).join(" · ");
@@ -373,8 +379,8 @@ function RecCard({ id, fresh }: { id: number; fresh: boolean }) {
         aria-label={`Open ${item.game.name}`}
         aria-haspopup="dialog"
         onClick={() => ref.current && ctx.open(item, ref.current)}
-        style={{ visibility: hide ? "hidden" : "visible" }}
-        className={`block h-[72px] w-full cursor-pointer rounded-2xl transition-[transform,filter] duration-200 hover:brightness-125 active:scale-[0.98] ${ring}`}
+        style={{ visibility: hide ? "hidden" : "visible", opacity: ctx.seen.has(id) ? 0.5 : 1 }}
+        className={`block h-[72px] w-full cursor-pointer rounded-2xl transition-[transform,filter,opacity] duration-200 hover:brightness-125 active:scale-[0.98] ${ring}`}
       >
         <RecFace game={item.game} />
       </button>
@@ -474,36 +480,242 @@ function Morph({
   );
 }
 
+/* ---------- info cards: the model writes <card>{json}</card>, we draw it ---------- */
+
+type InfoCardData = {
+  type?: "story" | "release" | "reception" | "gameplay";
+  kind?: string;
+  title?: string;
+  text?: string;
+  date?: string;
+  note?: string;
+  platforms?: string[];
+  critics?: string;
+  players?: string;
+  facts?: { k: string; v: string }[];
+  tags?: string[];
+};
+
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+const strs = (v: unknown, n: number) =>
+  Array.isArray(v) ? v.map(str).filter((t): t is string => !!t).slice(0, n) : undefined;
+
+const parseCard = (raw: string): InfoCardData | null => {
+  try {
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== "object") return null;
+    const facts = Array.isArray(d.facts)
+      ? d.facts
+        .map((f: { k?: unknown; v?: unknown }) => ({ k: str(f?.k), v: str(f?.v) }))
+        .filter((f: { k?: string; v?: string }): f is { k: string; v: string } => !!f.k && !!f.v)
+        .slice(0, 6)
+      : undefined;
+    const type = ["story", "release", "reception", "gameplay"].includes(d.type) ? d.type : undefined;
+    const card: InfoCardData = {
+      type,
+      kind: str(d.kind),
+      title: str(d.title),
+      text: str(d.text),
+      date: str(d.date),
+      note: str(d.note),
+      platforms: strs(d.platforms, 8),
+      critics: str(d.critics),
+      players: str(d.players),
+      facts,
+      tags: strs(d.tags, 6),
+    };
+    const has = card.title || card.text || card.date || card.critics || card.players || card.facts?.length || card.tags?.length || card.platforms?.length;
+    return has ? card : null;
+  } catch {
+    return null;
+  }
+};
+
+const ACC = "rgb(var(--accent))";
+const CARD_LABEL = { story: "Story", release: "Release", reception: "Reception", gameplay: "Gameplay" } as const;
+
+function Facts({ facts }: { facts: { k: string; v: string }[] }) {
+  return (
+    <dl className="divide-y divide-white/[0.07] text-[13px] leading-5">
+      {facts.map((f, i) => (
+        <div key={i} className="flex items-baseline justify-between gap-6 py-2">
+          <dt className="shrink-0 text-neutral-500">{f.k}</dt>
+          <dd className="text-right text-neutral-100">{f.v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function InfoCard({ data, fresh }: { data: InfoCardData; fresh: boolean }) {
+  const label = data.kind ?? (data.type ? CARD_LABEL[data.type] : undefined);
+  const dots = data.tags && data.tags.length > 0 && (
+    <p className="mt-4 text-[13px] leading-5" style={{ color: ACC }}>
+      {data.tags.join("  ·  ")}
+    </p>
+  );
+  const facts = data.facts && data.facts.length > 0 && (
+    <div className="mt-4 border-t border-white/[0.07]">
+      <Facts facts={data.facts} />
+    </div>
+  );
+
+  let body: ReactNode;
+  if (data.type === "release") {
+    body = (
+      <>
+        {data.date && <p className="text-[36px] font-semibold leading-none tracking-tight text-white tabular-nums">{data.date}</p>}
+        {(data.note ?? (data.date ? data.title : undefined)) && (
+          <p className="mt-2 text-[14px] leading-5 text-neutral-400">{data.note ?? data.title}</p>
+        )}
+        {!data.date && data.title && <p className="text-[22px] font-semibold leading-7 tracking-tight text-white">{data.title}</p>}
+        {data.platforms && data.platforms.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {data.platforms.map((p, i) => (
+              <span key={i} className="rounded-md border border-white/[0.14] px-2 py-0.5 text-xs text-neutral-300">
+                {p}
+              </span>
+            ))}
+          </div>
+        )}
+        {data.text && <p className="mt-4 text-[14px] leading-6 text-neutral-300">{data.text}</p>}
+        {facts}
+      </>
+    );
+  } else if (data.type === "reception") {
+    body = (
+      <>
+        {data.title && <p className="text-[19px] font-semibold leading-6 tracking-tight text-white">{data.title}</p>}
+        {data.facts && data.facts.length > 0 && (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {data.facts.slice(0, 3).map((f, i) => (
+              <div key={i} className="rounded-2xl bg-white/[0.06] px-3 py-2.5">
+                <p className="text-[17px] font-semibold leading-6 tabular-nums text-white">{f.v}</p>
+                <p className="text-xs text-neutral-500">{f.k}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.text && <p className="mt-4 text-[14px] leading-6 text-neutral-300">{data.text}</p>}
+        {(data.critics || data.players) && (
+          <div className="mt-4 divide-y divide-white/[0.07] border-t border-white/[0.07]">
+            {data.critics && (
+              <div className="py-3">
+                <p className="text-xs text-neutral-500">Critics</p>
+                <p className="mt-0.5 text-[14px] leading-6 text-neutral-200">{data.critics}</p>
+              </div>
+            )}
+            {data.players && (
+              <div className="py-3">
+                <p className="text-xs text-neutral-500">Players</p>
+                <p className="mt-0.5 text-[14px] leading-6 text-neutral-200">{data.players}</p>
+              </div>
+            )}
+          </div>
+        )}
+        {dots}
+      </>
+    );
+  } else if (data.type === "gameplay") {
+    body = (
+      <>
+        {data.title && <p className="text-[19px] font-semibold leading-6 tracking-tight text-white">{data.title}</p>}
+        {data.text && <p className="mt-2 text-[14px] leading-6 text-neutral-300">{data.text}</p>}
+        {data.facts && data.facts.length > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {data.facts.map((f, i) => (
+              <div key={i} className="rounded-2xl bg-white/[0.06] px-3.5 py-3">
+                <p className="text-[17px] font-semibold leading-6 text-white">{f.v}</p>
+                <p className="text-xs text-neutral-500">{f.k}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {dots}
+      </>
+    );
+  } else {
+    body = (
+      <>
+        {data.title && <p className="text-[22px] font-semibold leading-7 tracking-tight text-white">{data.title}</p>}
+        {data.text && <p className="mt-2 text-[15px] leading-7 text-neutral-200">{data.text}</p>}
+        {dots}
+        {facts}
+      </>
+    );
+  }
+
+  return (
+    <div
+      className={`relative my-3 block w-full max-w-md overflow-hidden whitespace-normal rounded-3xl border border-white/[0.09] bg-white/[0.04] text-left shadow-[0_20px_50px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl ${fresh ? "mb-anim mb-in" : ""}`}
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 top-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgb(var(--accent) / 0.75), transparent)" }}
+      />
+      <div className="relative p-5">
+        {label && (
+          <p className="mb-3 flex items-center gap-2 text-[12px] font-medium text-neutral-400">
+            <span className="h-px w-5" style={{ background: ACC }} />
+            {label}
+          </p>
+        )}
+        {body}
+      </div>
+    </div>
+  );
+}
+
+const CARD_SPLIT = /<card>([\s\S]*?)<\/card>/;
+const CARD_TAIL = /<(?:c(?:a(?:r(?:d(?:>[\s\S]*)?)?)?)?)?$/;
+
 function Reply({ text, fresh }: { text: string; fresh: boolean }) {
   if (!text) return <span className="mb-anim mb-skel my-1.5 block h-3.5 w-44 rounded-full" aria-label="Thinking" />;
 
-  const clean = text.replace(/\[\[?[^\[\]]*$/, "");
-  const typing = clean !== text;
-  const parts = clean.split(/\[\[([^\]]*)\]\]/);
+  /* hide whatever is still streaming in: an unfinished [[id]] or an unfinished <card> */
+  const lastEnd = text.lastIndexOf("</card>");
+  const head = lastEnd === -1 ? "" : text.slice(0, lastEnd + 7);
+  let tail = lastEnd === -1 ? text : text.slice(lastEnd + 7);
+  const cardOpen = CARD_TAIL.test(tail);
+  tail = tail.replace(CARD_TAIL, "");
+  const cleanTail = tail.replace(/\[\[?[^\[\]]*$/, "");
+  const typingRec = cleanTail !== tail;
+  const segs = (head + cleanTail).split(CARD_SPLIT);
 
   return (
     <>
-      {parts.map((part, pi) => {
-        if (pi % 2 === 1) {
-          const id = Number(part.match(/\d+/)?.[0]);
-          return Number.isInteger(id) && id > 0 ? <RecCard key={`c${pi}-${id}`} id={id} fresh={fresh} /> : null;
+      {segs.map((seg, si) => {
+        if (si % 2 === 1) {
+          const data = parseCard(seg);
+          return data ? <InfoCard key={`i${si}`} data={data} fresh={fresh} /> : null;
         }
-        const t = part.replace(pi > 0 ? /^\s+/ : /^$/, "").replace(pi < parts.length - 1 ? /\s+$/ : /^$/, "");
-        if (!t) return null;
-        if (!fresh) return <span key={pi}>{t}</span>;
-        return (
-          <span key={pi}>
-            {t.split(/(\s+)/).map((w, i) =>
-              /^\s*$/.test(w) ? w : (
-                <span key={i} className="mb-anim mb-w">
-                  {w}
-                </span>
-              ),
-            )}
-          </span>
-        );
+        const parts = seg.split(/\[\[([^\]]*)\]\]/);
+        return parts.map((part, pi) => {
+          if (pi % 2 === 1) {
+            const id = Number(part.match(/\d+/)?.[0]);
+            return Number.isInteger(id) && id > 0 ? <RecCard key={`c${si}-${pi}-${id}`} id={id} fresh={fresh} /> : null;
+          }
+          const trimL = pi > 0 || si > 0;
+          const trimR = pi < parts.length - 1 || si < segs.length - 1;
+          const t = part.replace(trimL ? /^\s+/ : /^$/, "").replace(trimR ? /\s+$/ : /^$/, "");
+          if (!t) return null;
+          if (!fresh) return <span key={`${si}-${pi}`}>{t}</span>;
+          return (
+            <span key={`${si}-${pi}`}>
+              {t.split(/(\s+)/).map((w, i) =>
+                /^\s*$/.test(w) ? w : (
+                  <span key={i} className="mb-anim mb-w">
+                    {w}
+                  </span>
+                ),
+              )}
+            </span>
+          );
+        });
       })}
-      {typing && <span className="mb-anim mb-skel my-2 block h-[72px] w-full max-w-sm rounded-2xl" aria-hidden="true" />}
+      {typingRec && <span className="mb-anim mb-skel my-2 block h-[72px] w-full max-w-sm rounded-2xl" aria-hidden="true" />}
+      {cardOpen && <span className="mb-anim mb-skel my-3 block h-28 w-full max-w-md rounded-2xl" aria-hidden="true" />}
     </>
   );
 }
@@ -534,9 +746,14 @@ export default function MarbleChat({
   const [threads, setThreads] = useState<Record<number, Msg[]>>({});
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resume, setResume] = useState<Game | null>(null); // the game whose chat we step aside from while you look at a recommendation
+  const [viewed, setViewed] = useState<Set<number>>(() => new Set());
   const [morph, setMorph] = useState<{ item: Loaded; from: DOMRect; to: DOMRect; el: HTMLElement } | null>(null); // a recommendation turning into the deck card
   const [morphPal, setMorphPal] = useState<Palette>(DEFAULT_PALETTE);
 
+  const drag = useRef({ active: false, sx: 0, sy: 0, tx: 0, ty: 0 });
+  const userRef = useRef<HTMLParagraphElement>(null);
+  const sentFrom = useRef<DOMRect | null>(null); // where the typed text was when it was sent
   const btnRef = useRef<HTMLButtonElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
@@ -549,9 +766,12 @@ export default function MarbleChat({
   const inputRef = useRef<HTMLInputElement>(null);
   const fromRect = useRef<DOMRect | null>(null);
   const closing = useRef(false);
+  const endSession = useRef(false);
+  const sess = useRef<{ pickedId: number; phase: "picking" | "viewing" | "chat" } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const seen = useRef(0);
-  const gid = game?.id;
+  const chatGame = resume ?? game;
+  const gid = chatGame?.id;
   const msgs = gid != null ? (threads[gid] ?? []) : [];
   const chatting = msgs.length > 0;
   const chattingRef = useRef(chatting);
@@ -567,17 +787,25 @@ export default function MarbleChat({
     setMorphPal(item.palette);
     item.ready.then(setMorphPal);
     setMorph({ item, from, to, el });
+    sess.current = { pickedId: item.game.id, phase: "picking" };
+    if (chatGame) setResume(chatGame);
+    setViewed((v) => new Set(v).add(item.game.id));
     close();
   };
 
   useEffect(() => () => abort.current?.abort(), [gid]);
 
   /* ---------- open ---------- */
-  const openChat = () => {
+  const openChat = (auto = false) => {
     if (!btnRef.current) return;
+    if (!auto) {
+      sess.current = null;
+      if (resume) setResume(null);
+    }
     fromRect.current = btnRef.current.getBoundingClientRect();
     closing.current = false;
-    seen.current = msgs.length;
+    const base = auto ? chatGame : game;
+    seen.current = base ? (threads[base.id] ?? []).length : 0;
     setReady(false);
     setLanding(false);
     setOpen(true);
@@ -597,6 +825,8 @@ export default function MarbleChat({
     const Y: Spring = { x: from.top, v: 0 };
     const S: Spring = { x: from.width / ORB, v: 0 };
     const C: Spring = { x: 0, v: 0 };
+    const DX: Spring = { x: 0, v: 0 }; // drag offset, snaps back to 0 on release
+    const DY: Spring = { x: 0, v: 0 };
 
     const targets = () => {
       const vv = window.visualViewport;
@@ -630,7 +860,7 @@ export default function MarbleChat({
     };
 
     const apply = () => {
-      orb.style.transform = `translate3d(${X.x}px, ${Y.x}px, 0) scale(${S.x})`;
+      orb.style.transform = `translate3d(${X.x + DX.x}px, ${Y.x + DY.x}px, 0) scale(${S.x})`;
       comp.style.transform = `translate3d(0, ${C.x}px, 0)`;
     };
 
@@ -652,8 +882,18 @@ export default function MarbleChat({
         const out = closing.current || chattingRef.current;
         step(X, T.tx, out ? 11 : 7, dt);
         step(Y, T.ty, out ? 11 : 10, dt);
-        step(S, T.ts, 8, dt);
+        step(S, T.ts * (drag.current.active ? 1.12 : 1), 8, dt);
         step(C, T.cy, 9, dt);
+      }
+      const dg = drag.current;
+      if (still) {
+        DX.x = dg.active ? dg.tx : 0;
+        DY.x = dg.active ? dg.ty : 0;
+      } else {
+        const w = dg.active ? 28 : 14;
+        const z = dg.active ? 1 : 0.4;
+        step2(DX, dg.active ? dg.tx : 0, w, z, dt);
+        step2(DY, dg.active ? dg.ty : 0, w, z, dt);
       }
       apply();
       raf = requestAnimationFrame(frame);
@@ -695,6 +935,12 @@ export default function MarbleChat({
     };
   }, [open]);
 
+  const dismiss = () => {
+    sess.current = null;
+    endSession.current = true;
+    close();
+  };
+
   const close = () => {
     if (closing.current) return;
     closing.current = true;
@@ -703,6 +949,10 @@ export default function MarbleChat({
       setReady(false);
       setLanding(false);
       closing.current = false;
+      if (endSession.current) {
+        endSession.current = false;
+        setResume(null);
+      }
     };
     const root = rootRef.current;
     if (reduced() || !root) return done();
@@ -725,18 +975,57 @@ export default function MarbleChat({
     window.setTimeout(done, 980);
   };
 
+  const deckId = game?.id;
+  useEffect(() => {
+    const s = sess.current;
+    if (!s || deckId == null || s.phase === "chat") return;
+    if (s.phase === "picking") {
+      if (deckId === s.pickedId) s.phase = "viewing";
+      return;
+    }
+    if (deckId === s.pickedId) return;
+    const t = window.setTimeout(() => {
+      if (sess.current !== s) return;
+      s.phase = "chat";
+      openChat(true);
+    }, 700);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deckId]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        close();
+        dismiss();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+  /* telegram-style send: the typed text lifts off the input, and the bubble forms around it as it lands */
+  useLayoutEffect(() => {
+    const from = sentFrom.current;
+    const el = userRef.current;
+    if (!from || !el) return;
+    sentFrom.current = null;
+    if (reduced()) return;
+    const b = el.getBoundingClientRect();
+    const dx = from.left - (b.left + 16); // 16 = the bubble's left padding, so the text itself starts exactly where it was typed
+    const dy = from.top + from.height / 2 - (b.top + b.height / 2);
+    const clear = { backgroundColor: "rgba(255,255,255,0)", borderColor: "rgba(255,255,255,0)" };
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px)`, ...clear, offset: 0 },
+        { ...clear, offset: 0.5 },
+        { transform: "none", backgroundColor: "rgba(255,255,255,0.07)", borderColor: "rgba(255,255,255,0.08)", offset: 1 },
+      ],
+      { duration: 560, easing: EASE, fill: "backwards" },
+    );
+  }, [msgs.length]);
+
   useEffect(() => {
     if (!open || !chatting) return;
     const list = listRef.current;
@@ -747,15 +1036,33 @@ export default function MarbleChat({
   }, [msgs.length, open, chatting]);
 
   if (!game) return <span className="size-10 shrink-0" aria-hidden="true" />;
+  const cg = chatGame as Game;
 
   /* ---------- chat ---------- */
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
-    const id = game.id;
-    let history: Msg[] = [...(threads[id] ?? []).filter((m) => m.content), { role: "user" as const, content: q }].slice(-12);
+    const id = cg.id;
+    // the model doesn't need its own card JSON back (and the server caps message length): send a short stand-in instead
+    const forModel = (m: Msg): Msg => {
+      if (m.role !== "assistant") return m;
+      const text = m.content
+        .replace(/<card>([\s\S]*?)<\/card>/g, (_, j: string) => {
+          try {
+            const d = JSON.parse(j);
+            return `[showed a card: ${d.title ?? d.kind ?? "info"}]`;
+          } catch {
+            return "";
+          }
+        })
+        .replace(/<card>[\s\S]*$/, "")
+        .trim();
+      return { ...m, content: (text || "(info cards shown)").slice(0, 1000) };
+    };
+    let history: Msg[] = [...(threads[id] ?? []).filter((m) => m.content).map(forModel), { role: "user" as const, content: q }].slice(-12);
     while (history.length > 1 && history[0].role !== "user") history = history.slice(1);
 
+    sentFrom.current = inputRef.current?.getBoundingClientRect() ?? null;
     setThreads((t) => ({
       ...t,
       [id]: [...(t[id] ?? []), { role: "user", content: q }, { role: "assistant", content: "" }],
@@ -764,6 +1071,17 @@ export default function MarbleChat({
     setBusy(true);
     const ctl = new AbortController();
     abort.current = ctl;
+    // never get stuck: if nothing arrives for 25s, give up and unlock the input
+    let timedOut = false;
+    let idle = 0;
+    const poke = () => {
+      window.clearTimeout(idle);
+      idle = window.setTimeout(() => {
+        timedOut = true;
+        ctl.abort();
+      }, 25_000);
+    };
+    poke();
 
     const patch = (fn: (s: string) => string) =>
       setThreads((t) => {
@@ -789,13 +1107,16 @@ export default function MarbleChat({
       for (; ;) {
         const { done, value } = await reader.read();
         if (done) break;
+        poke();
         const chunk = dec.decode(value, { stream: true });
         patch((s) => s + chunk);
       }
       patch((s) => s || "I drew a blank. Ask me again?");
     } catch (e) {
-      if ((e as { name?: string })?.name !== "AbortError") patch((s) => s || "Something went wrong. Try again?");
+      if (timedOut) patch((s) => s || "That took too long. Try again?");
+      else if ((e as { name?: string })?.name !== "AbortError") patch((s) => s || "Something went wrong. Try again?");
     } finally {
+      window.clearTimeout(idle);
       setBusy(false);
       if (abort.current === ctl) abort.current = null;
     }
@@ -822,7 +1143,7 @@ export default function MarbleChat({
         aria-label={`Ask about ${game.name}`}
         aria-haspopup="dialog"
         title="Ask about this game"
-        onClick={openChat}
+        onClick={() => openChat()}
         style={
           {
             opacity: open && !landing ? 0 : 1,
@@ -842,13 +1163,13 @@ export default function MarbleChat({
             data-overlay-open
             role="dialog"
             aria-modal="true"
-            aria-label={`Chat about ${game.name}`}
+            aria-label={`Chat about ${cg.name}`}
             className="fixed inset-0 z-[90]"
             style={{ "--accent": accent } as CSSProperties}
           >
             <div
               ref={scrimRef}
-              onClick={close}
+              onClick={dismiss}
               className="absolute inset-0 backdrop-blur-2xl"
               style={{
                 background:
@@ -862,13 +1183,13 @@ export default function MarbleChat({
                 data-rise
                 className="flex max-w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] py-1.5 pl-1.5 pr-4 backdrop-blur-md"
               >
-                {game.cover && (
-                  <img src={game.cover} alt="" className="aspect-[3/4] h-9 shrink-0 rounded-md border border-white/10 object-cover" />
+                {cg.cover && (
+                  <img src={cg.cover} alt="" className="aspect-[3/4] h-9 shrink-0 rounded-md border border-white/10 object-cover" />
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-white">{game.name}</p>
+                  <p className="truncate text-[13px] font-medium text-white">{cg.name}</p>
                   <p className="text-xs tabular-nums text-neutral-500">
-                    {[game.year, game.rating != null ? `${(game.rating / 10).toFixed(1)} / 10` : null].filter(Boolean).join(" · ")}
+                    {[cg.year, cg.rating != null ? `${(cg.rating / 10).toFixed(1)} / 10` : null].filter(Boolean).join(" · ")}
                   </p>
                 </div>
               </div>
@@ -878,7 +1199,7 @@ export default function MarbleChat({
               type="button"
               aria-label="Close chat"
               data-rise
-              onClick={close}
+              onClick={dismiss}
               className={`absolute right-4 top-4 grid size-10 cursor-pointer place-items-center rounded-full border border-white/10 bg-black/40 text-white/80 backdrop-blur-sm transition hover:bg-black/60 hover:text-white ${ring}`}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="size-4" aria-hidden="true">
@@ -895,7 +1216,7 @@ export default function MarbleChat({
               className="absolute inset-x-0 bottom-0 top-[72px] overflow-y-auto overscroll-contain [scrollbar-width:none] [mask-image:linear-gradient(to_bottom,transparent,black_28px,black_calc(100%-124px),transparent_calc(100%-92px))] [&::-webkit-scrollbar]:hidden"
             >
               <div className="mx-auto w-[min(92vw,640px)] pb-[150px] pt-3">
-                <RecCtx.Provider value={{ el: morph?.el ?? null, open: openRec }}>
+                <RecCtx.Provider value={{ el: morph?.el ?? null, open: openRec, seen: viewed }}>
                   {turns.map(({ u, a, i }, n) => {
                     const last = n === turns.length - 1;
                     const fresh = i >= seen.current;
@@ -907,7 +1228,8 @@ export default function MarbleChat({
                         style={last ? { minHeight: "calc(100dvh - 232px)" } : undefined}
                       >
                         <p
-                          className={`ml-auto w-fit max-w-[82%] whitespace-pre-wrap rounded-[20px] rounded-br-md border border-white/[0.08] bg-white/[0.07] px-4 py-2.5 text-[15px] leading-snug text-neutral-100 ${fresh ? "mb-anim mb-in" : ""}`}
+                          ref={last ? userRef : undefined}
+                          className="ml-auto w-fit max-w-[82%] whitespace-pre-wrap rounded-[20px] rounded-br-md border border-white/[0.08] bg-white/[0.07] px-4 py-2.5 text-[15px] leading-snug text-neutral-100"
                         >
                           {u.content}
                         </p>
@@ -928,7 +1250,30 @@ export default function MarbleChat({
             </div>
 
             {/* the marble: positioned by the spring loop, never by layout */}
-            <div ref={orbRef} className="pointer-events-none absolute left-0 top-0 z-20 origin-top-left will-change-transform" style={{ width: ORB, height: ORB }}>
+            <div
+              ref={orbRef}
+              className="absolute left-0 top-0 z-20 origin-top-left cursor-grab touch-none select-none will-change-transform active:cursor-grabbing"
+              style={{ width: ORB, height: ORB }}
+              onPointerDown={(e) => {
+                if (closing.current) return;
+                e.currentTarget.setPointerCapture(e.pointerId);
+                drag.current = { active: true, sx: e.clientX, sy: e.clientY, tx: 0, ty: 0 };
+              }}
+              onPointerMove={(e) => {
+                const d = drag.current;
+                if (!d.active) return;
+                // rubber band: follows the pointer, but gets heavier the further you pull
+                const band = (v: number) => 260 * Math.tanh(v / 260);
+                d.tx = band(e.clientX - d.sx);
+                d.ty = band(e.clientY - d.sy);
+              }}
+              onPointerUp={() => {
+                drag.current.active = false;
+              }}
+              onPointerCancel={() => {
+                drag.current.active = false;
+              }}
+            >
               <Marble talking={busy} />
             </div>
 
@@ -945,14 +1290,14 @@ export default function MarbleChat({
                   send(input);
                 }}
                 style={{ opacity: ready ? 1 : 0 }}
-                className={`pointer-events-auto flex w-full items-center gap-2 rounded-full border border-white/[0.14] bg-[#0b0b12]/70 py-1.5 pl-5 pr-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition-[border-color,box-shadow] duration-500 focus-within:border-[rgb(var(--accent)/0.55)] focus-within:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9),0_0_40px_-8px_rgb(var(--accent)/0.5)]`}
+                className={`pointer-events-auto relative flex w-full items-center gap-2 rounded-full border border-white/[0.14] bg-[#0b0b12]/70 py-1.5 pl-5 pr-1.5 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl transition-[border-color,box-shadow] duration-500 focus-within:border-[rgb(var(--accent)/0.55)] focus-within:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.9),0_0_40px_-8px_rgb(var(--accent)/0.5)]`}
               >
                 <input
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   maxLength={500}
-                  placeholder={chatting ? "Ask a follow-up…" : `Ask about ${game.name}…`}
+                  placeholder={chatting ? "Ask a follow-up…" : `Ask about ${cg.name}…`}
                   className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-neutral-600"
                 />
                 <button
