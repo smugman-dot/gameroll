@@ -1,7 +1,14 @@
 import { ensureSession } from "./supabase/client";
 
-export type EventType = "view" | "like" | "pass" | "undo";
-export type TrackEvent = { type: EventType; gameId: number; t: number; dwellMs?: number };
+export type EventType = "view" | "like" | "pass" | "undo" | "played";
+export type TrackEvent = {
+  type: EventType;
+  gameId: number;
+  t: number;
+  dwellMs?: number;
+  /** 1-5 stars, only for type "played" */
+  rating?: number;
+};
 
 const ID_KEY = "GAME_USER_ID";
 

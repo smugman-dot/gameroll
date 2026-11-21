@@ -41,7 +41,7 @@ function ArtFallback({ palette }: { palette: Palette }) {
 
 function Star() {
   return (
-    <svg viewBox="0 0 24 24" className="size-5 shrink-0 fill-current" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="size-[18px] shrink-0 fill-current md:size-5" aria-hidden="true">
       <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8L12 2.5z" />
     </svg>
   );
@@ -279,11 +279,13 @@ export default function GameCard({
           </div>
         </div>
 
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(8,7,14,0.95)_0%,rgba(8,7,14,0.86)_22%,rgba(8,7,14,0.66)_40%,rgba(8,7,14,0.4)_58%,rgba(8,7,14,0.18)_78%,transparent_100%)] md:hidden" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(8,7,14,0.96)_0%,rgba(8,7,14,0.9)_24%,rgba(8,7,14,0.72)_42%,rgba(8,7,14,0.42)_60%,rgba(8,7,14,0.14)_80%,transparent_100%)] md:hidden" />
+        {/* mobile: soft scrim up top so the progress bars and logo stay readable on bright art */}
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/55 to-transparent md:hidden" />
         <div className="absolute inset-0 hidden bg-[radial-gradient(75%_100%_at_20%_52%,rgba(8,7,14,0.6),transparent_78%),linear-gradient(to_right,rgba(8,7,14,0.93)_0%,rgba(8,7,14,0.88)_14%,rgba(8,7,14,0.74)_28%,rgba(8,7,14,0.52)_42%,rgba(8,7,14,0.3)_56%,rgba(8,7,14,0.13)_70%,rgba(8,7,14,0.04)_85%,transparent_100%)] md:block" />
       </div>
 
-      <div className="relative z-10 flex h-full w-full flex-col justify-between gap-6 p-6 [text-shadow:0_2px_22px_rgba(0,0,0,0.65)] md:w-[52%] md:p-10 md:pl-16">
+      <div className="relative z-10 flex h-full w-full flex-col justify-between gap-6 px-5 pb-6 pt-9 [text-shadow:0_2px_22px_rgba(0,0,0,0.65)] md:w-[52%] md:p-10 md:pl-16">
         {/* top: logo / cover only */}
         <div className={`${rise} w-fit`} style={at(0)}>
           {game.logo && !logoBroken ? (
@@ -300,7 +302,7 @@ export default function GameCard({
               alt=""
               draggable={false}
               onError={() => setCoverBroken(true)}
-              className="aspect-[3/4] h-24 select-none rounded-lg border border-white/15 object-cover shadow-[0_12px_30px_-8px_rgba(0,0,0,0.85)] md:h-32 [@media(max-height:800px)]:md:h-24"
+              className={`aspect-[3/4] h-24 select-none rounded-lg border border-white/15 object-cover shadow-[0_12px_30px_-8px_rgba(0,0,0,0.85)] md:h-32 [@media(max-height:800px)]:md:h-24 ${images.length ? "max-md:hidden" : ""}`}
             />
           ) : (
             <div
@@ -311,7 +313,7 @@ export default function GameCard({
           )}
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4 md:space-y-5">
           <h2
             className={`${wideFont.className} ${rise} ${dim} ${titleSize(game.name)} leading-[1.02] tracking-tight text-white`}
             style={at(70)}
@@ -352,7 +354,7 @@ export default function GameCard({
             )}
             {game.year && <span className="text-sm tracking-wide text-neutral-400">{game.year}</span>}
             {matches > 0 && (
-              <span className="text-sm text-neutral-300">
+              <span className="basis-full text-[13px] text-neutral-300 md:basis-auto md:text-sm">
                 Matches {matches} of your {matches === 1 ? "genre" : "genres"}
               </span>
             )}

@@ -1,17 +1,17 @@
 import { z } from "zod";
 import { createClient } from "../../lib/supabase/server";
-const Body = z.object({
-  events: z
-    .array(
-      z.object({
-        type: z.enum(["view", "like", "pass", "undo"]),
+const Event = z
+.object({
+  type: z.enum(["view", "like", "pass", "undo", "played"]),
         gameId: z.number().int(),
         t: z.number(),
         dwellMs: z.number().int().nonnegative().max(3_600_000).optional(),
-      }),
-    )
-    .max(50),
-});
+        rating: z.number().int().min(1).max(5).optional(),
+})
+// a played event must carry a rating; no other event may
+.refine((e) => (e.type === "played") === (e.rating !== undefined));
+
+const Body = z.object({ events: z.array(Event).max(50) });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     game_id: e.gameId,
     type: e.type,
     dwell_ms: e.dwellMs ?? null,
+    rating: e.rating ?? null,
     created_at: new Date(e.t).toISOString(),
   }));
 

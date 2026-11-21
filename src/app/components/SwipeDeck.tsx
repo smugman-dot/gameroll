@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import GameCard from "./GameCard";
+import MarbleChat from "./MarbleChat";
 import { GameSchema } from "../lib/igdb";
 import { normalizeGame, type Game } from "../lib/game";
 import { supabase, ensureSession } from "../lib/supabase/client";
@@ -26,8 +27,10 @@ import {
 } from "../lib/color";
 import { z } from "zod"
 import { track, flushNow } from "../lib/track";
+
 type Dir = 1 | -1;
-type Entry = { id: number; dir: Dir };
+type Entry = { id: number; dir: Dir; played?: number };
+
 type Drag = { x0: number; y0: number; lastX: number; lastT: number; vx: number; dx: number; dy: number };
 
 const VISIBLE = 3;
@@ -98,11 +101,15 @@ export default function SwipeDeck({
   const [navFlash, setNavFlash] = useState<"prev" | "next" | null>(null);
   const [shots, setShots] = useState<Record<number, number>>({});
   const [palettes, setPalettes] = useState<Record<number, Palette>>({});
+  const [picked, setPicked] = useState<number | null>(null); // a game chosen in the chat, just arrived
   const stage = useRef<HTMLDivElement>(null);
   const top = useRef<HTMLDivElement>(null);
   const busy = useRef(false);
   const indexRef = useRef(0);
-  const reentry = useRef<0 | 1 | -1>(0);
+  const reentry = useRef<0 | 1 | -1 | "up">(0);
+  const [rating, setRating] = useState(false); // rating popover open
+  const [hoverStar, setHoverStar] = useState(0);
+  const ratingRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const prefKey = [...preferred].sort((a, b) => a - b).join(",");
   const prefIds = () => (prefKey ? prefKey.split(",").map(Number) : []);
@@ -137,13 +144,17 @@ export default function SwipeDeck({
 
 
   useEffect(() => {
-    const latest = new Map<number, Dir>();
-    history.forEach((h) => latest.set(h.id, h.dir));
+    const latest = new Map<number, Entry>();
+    history.forEach((h) => latest.set(h.id, h));
     const liked: number[] = [];
     const passed: number[] = [];
-    latest.forEach((dir, id) => (dir === 1 ? liked : passed).push(id));
+    const played: Record<number, number> = {};
+    latest.forEach((h, id) => {
+      if (h.played) played[id] = h.played;
+      else (h.dir === 1 ? liked : passed).push(id);
+    });
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ liked, passed }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ liked, passed, played }));
     } catch { }
   }, [history]);
 
@@ -188,28 +199,41 @@ export default function SwipeDeck({
   }, [loKey, hiKey]);
 
   const fly = useCallback(
-    (dir: Dir, dy = -24) => {
+    (dir: Dir, dy = -24, played?: number) => {
       const el = top.current;
       if (!el || busy.current) return;
       busy.current = true;
       stage.current?.style.setProperty("--pabs", "1");
 
       el.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.3, 0.6, 0.3, 1), opacity ${FLY_MS}ms ease-in`;
-      el.style.transform = `translate3d(${dir * window.innerWidth}px, ${dy}px, 0) rotate(${dir * 14}deg)`;
+      if (played) {
+        // played games leave upwards, so it reads differently from like / skip
+        el.style.transform = `translate3d(0, ${-window.innerHeight * 0.6}px, 0) scale(0.92)`;
+      } else {
+        el.style.transform = `translate3d(${dir * window.innerWidth}px, ${dy}px, 0) rotate(${dir * 14}deg)`;
+        el.style.setProperty("--p", String(dir));
+      }
       el.style.opacity = "0";
-      el.style.setProperty("--p", String(dir));
 
       window.setTimeout(() => {
         const game = games[indexRef.current];
         if (game) {
-          setHistory((h) => [...h, { id: game.id, dir }]);
-          track({
-            type: dir === 1 ? "like" : "pass",
-            gameId: game.id,
-            dwellMs: Date.now() - shownAt.current,
-          });
+          setHistory((h) => [...h, played ? { id: game.id, dir, played } : { id: game.id, dir }]);
+          track(
+            played
+              ? { type: "played", gameId: game.id, rating: played, dwellMs: Date.now() - shownAt.current }
+              : {
+                type: dir === 1 ? "like" : "pass",
+                gameId: game.id,
+                dwellMs: Date.now() - shownAt.current,
+              },
+          );
 
-          setAnnounce(`${dir === 1 ? "Interested in" : "Skipped"} ${game.name}`);
+          setAnnounce(
+            played
+              ? `Marked ${game.name} as played, rated ${played} out of 5`
+              : `${dir === 1 ? "Interested in" : "Skipped"} ${game.name}`,
+          );
         }
         setIndex((i) => i + 1);
         busy.current = false;
@@ -223,10 +247,32 @@ export default function SwipeDeck({
     const last = history[history.length - 1];
     if (!last) return;
     track({ type: "undo", gameId: last.id });
-    reentry.current = last.dir;
+    reentry.current = last.played ? "up" : last.dir;
     setHistory((h) => h.slice(0, -1));
     setIndex((i) => Math.max(0, i - 1));
   }, [history]);
+
+  /* a game recommended in the chat becomes the card on top of the deck */
+  const pick = useCallback((g: Game, palette: Palette) => {
+    setFeed((cur) => {
+      if (!cur) return cur;
+      const i = indexRef.current;
+      return [...cur.slice(0, i), g, ...cur.slice(i).filter((x) => x.id !== g.id)];
+    });
+    setPalettes((p) => ({ ...p, [g.id]: palette })); // same colours as the chat card, so nothing shifts on arrival
+    setShots((s) => ({ ...s, [g.id]: 0 }));
+    setPicked(g.id);
+    window.setTimeout(() => setPicked(null), 2500);
+  }, []);
+
+  const markPlayed = useCallback(
+    (stars: number) => {
+      setRating(false);
+      setHoverStar(0);
+      fly(1, -24, stars);
+    },
+    [fly],
+  );
 
   const stepShot = useCallback(
     (x: number) => {
@@ -250,7 +296,13 @@ export default function SwipeDeck({
     reentry.current = 0;
     top.current?.animate(
       [
-        { transform: `translate3d(${dir * window.innerWidth * 0.5}px, 0, 0) rotate(${dir * 10}deg)`, opacity: 0 },
+        {
+          transform:
+            dir === "up"
+              ? `translate3d(0, ${-window.innerHeight * 0.3}px, 0) scale(0.94)`
+              : `translate3d(${dir * window.innerWidth * 0.5}px, 0, 0) rotate(${dir * 10}deg)`,
+          opacity: 0,
+        },
         { transform: "none", opacity: 1 },
       ],
       { duration: 520, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }
@@ -265,7 +317,20 @@ export default function SwipeDeck({
         setFlash(k);
         window.setTimeout(() => setFlash(null), 180);
       };
-      if (e.key === "ArrowRight") {
+      if (rating) {
+        if (/^[1-5]$/.test(e.key)) {
+          e.preventDefault();
+          markPlayed(Number(e.key));
+        } else if (e.key === "Escape" || e.key === "p" || e.key === "P") {
+          e.preventDefault();
+          setRating(false);
+        }
+        return;
+      }
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        if (!busy.current && games[indexRef.current]) setRating(true);
+      } else if (e.key === "ArrowRight") {
         e.preventDefault();
         tap("like");
         fly(1);
@@ -291,7 +356,20 @@ export default function SwipeDeck({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [fly, undo, stepShot]);
+  }, [fly, undo, stepShot, rating, markPlayed, games]);
+
+  useEffect(() => {
+    if (!rating) return;
+    const onDown = (e: PointerEvent) => {
+      if (ratingRef.current && !ratingRef.current.contains(e.target as Node)) setRating(false);
+    };
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
+  }, [rating]);
+  useEffect(() => {
+    setRating(false);
+    setHoverStar(0);
+  }, [index, paused]);
 
   const threshold = (el: HTMLElement) => Math.min(el.offsetWidth * DISTANCE, MAX_DISTANCE);
   const tilt = (e: RPointerEvent<HTMLDivElement>) => {
@@ -450,7 +528,7 @@ export default function SwipeDeck({
       </div>
 
       <div className={rise} style={{ animationDelay: "250ms", ...slide }}>
-        <div ref={stage} className={`relative h-[min(72vh,600px)] ${WIDTH} [--pabs:0]`}>
+        <div ref={stage} data-deck-stage className={`relative h-[min(72vh,600px)] ${WIDTH} [--pabs:0]`}>
           {done ? (
             <div className="absolute inset-0 grid place-items-center rounded-2xl border border-white/10 bg-[#0a0910] p-8 text-center">
               <div>
@@ -498,7 +576,7 @@ export default function SwipeDeck({
                     shot={shots[g.id] ?? 0}
                     onSelect={(n) => setShots((s) => ({ ...s, [g.id]: n }))}
                     navFlash={i === 0 ? navFlash : null}
-                    delay={index === 0 && history.length === 0 ? 400 : 0}
+                    delay={picked === g.id ? 200 : index === 0 && history.length === 0 ? 400 : 0}
                   />
                 </div>
               </div>
@@ -511,6 +589,8 @@ export default function SwipeDeck({
         className={`${rise} mt-6 flex items-center justify-center gap-3`}
         style={{ animationDelay: "450ms", "--accent": accentKey, ...slide } as CSSProperties}
       >
+        <MarbleChat game={done ? undefined : currentGame} accent={accentKey} preferred={preferred} onPick={pick} />
+
         <button
           type="button"
           disabled={done}
@@ -533,6 +613,49 @@ export default function SwipeDeck({
             <path d="M4 9h10a6 6 0 010 12h-3" />
           </svg>
         </button>
+
+        <div ref={ratingRef} className="relative">
+          <button
+            type="button"
+            disabled={done}
+            aria-haspopup="dialog"
+            title="Already played (P)"
+            onClick={() => setRating((o) => !o)}
+            className={`${quiet} ${ring} ${rating ? lit : ""}`}
+          >
+            <Kbd lit={rating}>P</Kbd>Played
+          </button>
+
+          {rating && (
+            <div
+              role="dialog"
+              aria-label="Rate this game"
+              className="absolute bottom-full left-1/2 z-50 mb-3 -translate-x-1/2 animate-[rise_0.3s_cubic-bezier(0.16,1,0.3,1)_backwards] whitespace-nowrap rounded-2xl border border-white/10 bg-[#070b1c]/95 px-4 py-3 text-center shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9),0_0_40px_-18px_rgb(var(--accent)/0.6)] backdrop-blur-xl"
+            >
+              <p className="text-xs text-neutral-400">Already played it? Rate it</p>
+              <div className="mt-2 flex justify-center gap-1" onPointerLeave={() => setHoverStar(0)}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    autoFocus={n === 1}
+                    aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
+                    onPointerEnter={() => setHoverStar(n)}
+                    onFocus={() => setHoverStar(n)}
+                    onClick={() => markPlayed(n)}
+                    className={`cursor-pointer rounded-md p-1 transition-[color,transform] duration-150 hover:scale-110 active:scale-90 ${ring} ${n <= hoverStar ? "text-[rgb(var(--accent))]" : "text-white/25"
+                      }`}
+                  >
+                    <svg viewBox="0 0 24 24" className="size-6 fill-current" aria-hidden="true">
+                      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8L12 2.5z" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-neutral-500">Press 1–5 · Esc to cancel</p>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

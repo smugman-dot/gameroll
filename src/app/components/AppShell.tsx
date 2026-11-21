@@ -542,10 +542,14 @@ export default function AppShell({ preferred }: { preferred: Set<number> }) {
           background-clip: padding-box;
         }
         .nice-scroll::-webkit-scrollbar-corner { background: transparent; }
-        .nice-scroll[data-quiet]::-webkit-scrollbar-thumb { background: transparent !important; }
-        .nice-scroll[data-quiet] { scrollbar-color: transparent transparent !important; }
+        /* hide thumbs while the sheet moves. NOTE: never set scrollbar-color here for webkit/blink: in Chrome 121+
+           it switches the element from the 12px ::-webkit-scrollbar to the native one, which changes the
+           scrollbar width and makes the text reflow ("teleport") */
+        .nice-scroll[data-quiet]::-webkit-scrollbar-thumb,
+        .nice-scroll[data-quiet] .nice-scroll::-webkit-scrollbar-thumb { background: transparent !important; }
         @supports not selector(::-webkit-scrollbar) {
           .nice-scroll { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.25) transparent; }
+          .nice-scroll[data-quiet], .nice-scroll[data-quiet] .nice-scroll { scrollbar-color: transparent transparent; }
         }
       `}</style>
 
@@ -700,7 +704,8 @@ export default function AppShell({ preferred }: { preferred: Set<number> }) {
               ) : (
                 <div className="size-full bg-[radial-gradient(90%_120%_at_85%_15%,rgba(120,100,255,0.4),transparent_60%)]" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#070b1c] via-[#070b1c]/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#070b1c] via-[#070b1c]/55 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#070b1c]/90 to-transparent" />
             </div>
 
             <button
@@ -726,12 +731,12 @@ export default function AppShell({ preferred }: { preferred: Set<number> }) {
                   />
                 )}
                 <div data-rise className="min-w-0 pb-1">
-                  <h3 className="text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">
+                  <h3 className="text-2xl font-semibold leading-tight tracking-tight text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.7),0_4px_24px_rgba(0,0,0,0.8)] md:text-3xl">
                     {detail.game.name}
                   </h3>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-400">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-300 [text-shadow:0_1px_3px_rgba(0,0,0,0.8),0_2px_14px_rgba(0,0,0,0.7)]">
                     {detail.game.rating != null && (
-                      <span className="rounded-full bg-white/10 px-2.5 py-0.5 font-semibold tabular-nums text-white">
+                      <span className="rounded-full bg-black/40 px-2.5 py-0.5 font-semibold tabular-nums text-white shadow-[0_2px_10px_rgba(0,0,0,0.5)] backdrop-blur-sm [text-shadow:none]">
                         {(detail.game.rating / 10).toFixed(1)}
                       </span>
                     )}
@@ -769,7 +774,10 @@ export default function AppShell({ preferred }: { preferred: Set<number> }) {
                 )}
 
                 {shots.length > 0 && (
-                  <div data-rise className="nice-scroll -ml-6 -mr-3 mt-7 flex snap-x gap-3 overflow-x-auto pb-2 pl-6 pr-3 md:-ml-9 md:-mr-6 md:pl-9 md:pr-6">
+                  <div
+                    data-rise
+                    className="nice-scroll -ml-6 -mr-3 mt-7 flex snap-x scroll-pl-6 scroll-pr-3 gap-3 overflow-x-scroll pb-2 pl-6 pr-3 [mask-image:linear-gradient(to_right,transparent,black_20px,black_calc(100%-20px),transparent)] md:-ml-9 md:-mr-6 md:scroll-pl-9 md:scroll-pr-6 md:pl-9 md:pr-6"
+                  >
                     {shots.map((s, i) => (
                       <img
                         key={s}
